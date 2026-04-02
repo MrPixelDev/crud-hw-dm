@@ -179,14 +179,12 @@ export class AuthService {
   }
 
   async signup(signupDto: SignupDto): Promise<ITokenPair> {
-    const normalizedLogin = signupDto.login.trim();
-    const normalizedEmail = signupDto.email.trim().toLowerCase();
     const passwordHash = await argon2.hash(signupDto.password);
 
     try {
       return await this._dataSrc.transaction(async manager => {
         const existingEmail = await this._usersSvc.findByEmail(
-          normalizedEmail,
+          signupDto.email,
           manager
         );
         if (existingEmail) {
@@ -195,8 +193,8 @@ export class AuthService {
 
         const user = await this._usersSvc.create(
           {
-            login: normalizedLogin,
-            email: normalizedEmail,
+            login: signupDto.login,
+            email: signupDto.email,
             passwordHash,
             age: signupDto.age,
             description: signupDto.description,
@@ -219,10 +217,7 @@ export class AuthService {
   }
 
   async signin(signinDto: SigninDto): Promise<ITokenPair> {
-    const user = await this._validateUser(
-      signinDto.login.trim(),
-      signinDto.password
-    );
+    const user = await this._validateUser(signinDto.login, signinDto.password);
 
     return await this._dataSrc.transaction(async manager => {
       return await this._createSessionAndIssueTokens(user, manager);
