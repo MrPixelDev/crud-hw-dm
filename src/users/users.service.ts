@@ -3,8 +3,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { UserEntity } from './entities/user.entity';
 import { EntityManager, Repository } from 'typeorm';
 import { ISignupParams } from 'src/common/interfaces/auth.interface';
-import { ProfileResponseDto } from './dto/profile-response.dto';
+import {
+  AllProfileRequestDto,
+  AllProfileResponseDto,
+  ProfileResponseDto,
+} from './dto/profile-response.dto';
 import { randomUUID, UUID } from 'crypto';
+import {
+  defaultGetUsersParams,
+  IGetUsersParams,
+} from 'src/common/interfaces/user.interface';
 
 @Injectable()
 export class UsersService {
@@ -66,6 +74,29 @@ export class UsersService {
       .getOne();
   }
 
+  async getUsers(
+    params: IGetUsersParams = defaultGetUsersParams,
+    manager?: EntityManager
+  ): Promise<{ users: UserEntity[]; totalPages: number }> {
+    const filter = params.filter ? params.filter : undefined;
+    const queryBuilder = this._getRepo(manager).createQueryBuilder('user');
+
+    if (filter?.login) {
+      queryBuilder.where('login = :login', { login: filter.login });
+    }
+
+    const total = await queryBuilder.getCount();
+
+    const users = await queryBuilder
+      .skip((params.page - 1) * params.limit)
+      .take(params.limit)
+      .getMany();
+
+    const totalPages = total === 0 ? 0 : Math.ceil(total / params.limit);
+
+    return { users, totalPages };
+  }
+
   async getOwnProfile(userId: UUID): Promise<ProfileResponseDto> {
     const user = await this.findByUserId(userId);
 
@@ -74,5 +105,18 @@ export class UsersService {
     }
 
     return new ProfileResponseDto(user);
+  }
+
+  async getAllProfiles(
+    data: AllProfileRequestDto
+  ): Promise<AllProfileResponseDto> {
+    const { users, totalPages } = await this.getUsers({
+      pagination: true,
+      page: data.page,
+      limit: data.limit,
+      filter: data.filter,
+    });
+
+    return new AllProfileResponseDto(users, data.page, data.limit, totalPages);
   }
 }
