@@ -7,7 +7,8 @@ import {
   AllProfileRequestDto,
   AllProfileResponseDto,
   ProfileResponseDto,
-} from './dto/profile-response.dto';
+  UpdateUserDto,
+} from './dto/profile.dto';
 import { randomUUID, UUID } from 'crypto';
 import {
   defaultGetUsersParams,
@@ -118,5 +119,17 @@ export class UsersService {
     });
 
     return new AllProfileResponseDto(users, data.page, data.limit, totalPages);
+  }
+
+  async updateUser(userId: UUID, data: UpdateUserDto): Promise<UserEntity> {
+    const repo = this._getRepo();
+    const currentUser = await repo.findOneBy({ userId });
+
+    if (!currentUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    const updatedUser = Object.assign(currentUser, data);
+    return repo.save(updatedUser);
   }
 }

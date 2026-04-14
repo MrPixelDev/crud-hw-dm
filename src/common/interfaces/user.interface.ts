@@ -1,4 +1,4 @@
-import { UserFilterDto } from 'src/users/dto/profile-response.dto';
+import { UserFilterDto } from 'src/users/dto/profile.dto';
 
 export type UserFilter = {
   login: string;

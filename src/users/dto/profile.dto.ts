@@ -1,8 +1,19 @@
 import type { UUID } from 'crypto';
 import type { UserFilter } from 'src/common/interfaces/user.interface';
 import { UserEntity } from '../entities/user.entity';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import {
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  Validate,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
+import { AtLeastOneField } from 'src/common/utilities/validators.utility';
+import { SignupDto } from 'src/auth/dto/auth.dto';
 
 export class ProfileResponseDto {
   userId!: UUID;
@@ -72,4 +83,24 @@ export class AllProfileResponseDto {
     this.limit = limit;
     this.totalPages = totalPages;
   }
+}
+
+export class UpdateUserDto implements Partial<
+  Omit<SignupDto, 'login' | 'email' | 'password'>
+> {
+  @IsOptional()
+  @IsNotEmpty()
+  @IsInt()
+  @Min(1)
+  @Max(150)
+  age?: number;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(1000)
+  description?: string;
+
+  @Validate(AtLeastOneField, ['age', 'description'])
+  private readonly _atLeastOneFieldCheck?: never;
 }

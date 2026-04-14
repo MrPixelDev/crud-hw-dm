@@ -3,7 +3,7 @@ import { UsersService } from './users.service';
 import { AccessTokenGuard } from 'src/auth/guards/access-token.guard';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { UUID } from 'crypto';
-import { AllProfileRequestDto } from './dto/profile-response.dto';
+import { AllProfileRequestDto, UpdateUserDto } from './dto/profile.dto';
 
 @Controller('profile')
 export class ProfileController {
@@ -17,10 +17,13 @@ export class ProfileController {
 
   @UseGuards(AccessTokenGuard)
   @Post('all')
-  getAllProfiles(
-    @CurrentUser('sub') userId: UUID,
-    @Body() data: AllProfileRequestDto
-  ) {
+  getAllProfiles(@Body() data: AllProfileRequestDto) {
     return this._usersSvc.getAllProfiles(data);
+  }
+
+  @UseGuards(AccessTokenGuard)
+  @Post('update')
+  updateUser(@CurrentUser('sub') userId: UUID, @Body() data: UpdateUserDto) {
+    return this._usersSvc.updateUser(userId, data);
   }
 }
