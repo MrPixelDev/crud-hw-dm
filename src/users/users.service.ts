@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  forwardRef,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UserEntity } from './entities/user.entity';
 import { EntityManager, Repository } from 'typeorm';
@@ -14,12 +19,15 @@ import {
   defaultGetUsersParams,
   IGetUsersParams,
 } from 'src/common/interfaces/user.interface';
+import { AuthService } from 'src/auth/auth.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(UserEntity)
-    private readonly _usersRepo: Repository<UserEntity>
+    private readonly _usersRepo: Repository<UserEntity>,
+    @Inject(forwardRef(() => AuthService))
+    private readonly _authSvc: AuthService
   ) {}
 
   private _getRepo(manager?: EntityManager): Repository<UserEntity> {
@@ -131,5 +139,20 @@ export class UsersService {
 
     const updatedUser = Object.assign(currentUser, data);
     return repo.save(updatedUser);
+  }
+
+  async deleteUser(userId: UUID, type: 'soft' | 'hard'): Promise<void> {
+    const repo = this._getRepo();
+    const user = await repo.findOneBy({ userId });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (type === 'soft') {
+      await repo.softDelete({ userId });
+    }
+
+    return await this._authSvc.signout(userId);
   }
 }

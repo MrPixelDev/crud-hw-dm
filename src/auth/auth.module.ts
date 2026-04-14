@@ -9,12 +9,12 @@ import { AccessTokenGuard } from './guards/access-token.guard';
 
 @Module({
   imports: [
-    UsersModule,
     JwtModule.register({}),
     TypeOrmModule.forFeature([SessionEntity]),
+    UsersModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, TypeOrmModule, AccessTokenGuard],
-  exports: [TypeOrmModule, AccessTokenGuard],
+  exports: [TypeOrmModule, AccessTokenGuard, AuthService],
 })
 export class AuthModule {}

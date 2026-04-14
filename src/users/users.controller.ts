@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { AccessTokenGuard } from 'src/auth/guards/access-token.guard';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
@@ -25,5 +33,12 @@ export class ProfileController {
   @Post('update')
   updateUser(@CurrentUser('sub') userId: UUID, @Body() data: UpdateUserDto) {
     return this._usersSvc.updateUser(userId, data);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AccessTokenGuard)
+  @Post('delete')
+  deleteUser(@CurrentUser('sub') userId: UUID) {
+    return this._usersSvc.deleteUser(userId, 'soft');
   }
 }

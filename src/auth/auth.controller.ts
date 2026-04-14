@@ -15,6 +15,7 @@ import {
 } from './dto/auth.dto';
 import { AccessTokenGuard } from './guards/access-token.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
+import type { UUID } from 'crypto';
 
 @Controller('auth')
 export class AuthController {
@@ -45,5 +46,12 @@ export class AuthController {
     @Body() newPasswordDto: ChangePasswordDto
   ) {
     return this._authSvc.changePassword(login, newPasswordDto);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AccessTokenGuard)
+  @Post('signout')
+  signout(@CurrentUser('sub') userId: UUID) {
+    return this._authSvc.signout(userId);
   }
 }
