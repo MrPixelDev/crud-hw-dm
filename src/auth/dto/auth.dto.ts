@@ -61,3 +61,15 @@ export class RefreshTokenDto {
   @IsJWT()
   refreshToken!: string;
 }
+
+export class ChangePasswordDto implements Pick<SignupDto, 'password'> {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(128)
+  password!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(128)
+  newPassword!: string;
+}

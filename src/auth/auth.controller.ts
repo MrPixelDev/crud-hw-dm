@@ -1,6 +1,20 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { RefreshTokenDto, SigninDto, SignupDto } from './dto/auth.dto';
+import {
+  ChangePasswordDto,
+  RefreshTokenDto,
+  SigninDto,
+  SignupDto,
+} from './dto/auth.dto';
+import { AccessTokenGuard } from './guards/access-token.guard';
+import { CurrentUser } from './decorators/current-user.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -21,5 +35,15 @@ export class AuthController {
   @Post('refresh')
   refresh(@Body() refreshTokenDto: RefreshTokenDto) {
     return this._authSvc.refresh(refreshTokenDto);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AccessTokenGuard)
+  @Post('changepw')
+  changePassword(
+    @CurrentUser('login') login: string,
+    @Body() newPasswordDto: ChangePasswordDto
+  ) {
+    return this._authSvc.changePassword(login, newPasswordDto);
   }
 }

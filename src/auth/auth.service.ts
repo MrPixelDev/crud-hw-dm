@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -22,7 +23,12 @@ import {
 } from 'src/common/interfaces/auth.interface';
 import { randomUUID } from 'crypto';
 import { parseDurationToMs } from 'src/common/utilities/dt.utility';
-import { RefreshTokenDto, SigninDto, SignupDto } from './dto/auth.dto';
+import {
+  ChangePasswordDto,
+  RefreshTokenDto,
+  SigninDto,
+  SignupDto,
+} from './dto/auth.dto';
 import * as argon2 from 'argon2';
 
 @Injectable()
@@ -273,5 +279,35 @@ export class AuthService {
         nextRefreshJti
       );
     });
+  }
+
+  async changePassword(
+    login: string,
+    newPasswordDto: ChangePasswordDto
+  ): Promise<ITokenPair | void> {
+    await this._validateUser(login, newPasswordDto.password);
+
+    try {
+      return await this._dataSrc.transaction(async manager => {
+        const user = await this._usersSvc.findByLoginWithPasswordHash(
+          login,
+          manager
+        );
+
+        if (!user) {
+          throw new NotFoundException('User not found');
+        }
+
+        const newPasswordHash = await argon2.hash(newPasswordDto.newPassword);
+        user.passwordHash = newPasswordHash;
+
+        await manager.save(user);
+
+        return await this._createSessionAndIssueTokens(user, manager);
+      });
+    } catch (e) {
+      this._rethrowKnownDbErrors(e);
+      throw e;
+    }
   }
 }
