@@ -1,16 +1,16 @@
+import { UserFilterDto } from 'src/users/dto/profile-response.dto';
+
 export type UserFilter = {
   login: string;
 };
 
-export const isUserFilter = (obj: unknown): obj is Partial<UserFilter> => {
-  return obj !== null && typeof obj === 'object' && 'login' in obj;
-};
+export type isUserFilter = (obj: unknown) => obj is Partial<UserFilter>;
 
 export interface IGetUsersParams {
   pagination: boolean;
   limit: number;
   page: number;
-  filter?: UserFilter;
+  filter?: UserFilterDto;
 }
 
 export const defaultGetUsersParams: IGetUsersParams = {

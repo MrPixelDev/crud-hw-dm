@@ -3,7 +3,6 @@ import type { UserFilter } from 'src/common/interfaces/user.interface';
 import { UserEntity } from '../entities/user.entity';
 import { IsInt, IsOptional, Max, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { normalizeUsersFilter } from 'src/common/utilities/transformers.utility';
 
 export class ProfileResponseDto {
   userId!: UUID;
@@ -25,6 +24,19 @@ export class ProfileResponseDto {
   }
 }
 
+export class UserFilterDto {
+  @IsOptional()
+  @IsInt()
+  @Transform(({ value }: { value: UserFilter }) => {
+    for (const key in value) {
+      if (typeof value[key] === 'string') {
+        value[key] = value[key].toLowerCase().replace(/\s/g, '');
+      }
+    }
+  })
+  login?: string;
+}
+
 export class AllProfileRequestDto {
   @IsOptional()
   @IsInt()
@@ -38,9 +50,7 @@ export class AllProfileRequestDto {
   limit: number = 10;
 
   @IsOptional()
-  // My bad in transformer here
-  @Transform(normalizeUsersFilter)
-  filter?: UserFilter;
+  filter?: UserFilterDto;
 }
 
 export class AllProfileResponseDto {
