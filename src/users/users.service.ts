@@ -86,24 +86,26 @@ export class UsersService {
   async getUsers(
     params: IGetUsersParams = defaultGetUsersParams,
     manager?: EntityManager
-  ): Promise<{ users: UserEntity[]; totalPages: number }> {
+  ): Promise<{ users: UserEntity[]; total: number; totalPages: number }> {
     const filter = params.filter ? params.filter : undefined;
     const queryBuilder = this._getRepo(manager).createQueryBuilder('user');
 
     if (filter?.login) {
-      queryBuilder.where('login = :login', { login: filter.login });
+      queryBuilder.where('user.login = :login', { login: filter.login });
     }
 
     const total = await queryBuilder.getCount();
 
     const users = await queryBuilder
+      .orderBy('user.createdAt', 'DESC')
+      .addOrderBy('user.userId', 'ASC')
       .skip((params.page - 1) * params.limit)
       .take(params.limit)
       .getMany();
 
     const totalPages = total === 0 ? 0 : Math.ceil(total / params.limit);
 
-    return { users, totalPages };
+    return { users, total, totalPages };
   }
 
   async getOwnProfile(userId: UUID): Promise<ProfileResponseDto> {
@@ -119,17 +121,26 @@ export class UsersService {
   async getAllProfiles(
     data: AllProfileRequestDto
   ): Promise<AllProfileResponseDto> {
-    const { users, totalPages } = await this.getUsers({
+    const { users, total, totalPages } = await this.getUsers({
       pagination: true,
       page: data.page,
       limit: data.limit,
       filter: data.filter,
     });
 
-    return new AllProfileResponseDto(users, data.page, data.limit, totalPages);
+    return new AllProfileResponseDto(
+      users,
+      total,
+      data.page,
+      data.limit,
+      totalPages
+    );
   }
 
-  async updateUser(userId: UUID, data: UpdateUserDto): Promise<UserEntity> {
+  async updateUser(
+    userId: UUID,
+    data: UpdateUserDto
+  ): Promise<ProfileResponseDto> {
     const repo = this._getRepo();
     const currentUser = await repo.findOneBy({ userId });
 
@@ -138,7 +149,9 @@ export class UsersService {
     }
 
     const updatedUser = Object.assign(currentUser, data);
-    return repo.save(updatedUser);
+    const savedUser = await repo.save(updatedUser);
+
+    return new ProfileResponseDto(savedUser);
   }
 
   async deleteUser(userId: UUID, type: 'soft' | 'hard'): Promise<void> {
