@@ -1,14 +1,13 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import type { UUID } from 'crypto';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { AuthService } from 'src/auth/auth.service';
 import { UserEntity } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
 
 describe('UsersService', () => {
-  const userId = '11111111-1111-1111-1111-111111111111' as UUID;
+  const userId = crypto.randomUUID();
 
   const usersRepoMock = {
     findOneBy: jest.fn<(params: unknown) => Promise<UserEntity | null>>(),

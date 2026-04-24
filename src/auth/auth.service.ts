@@ -316,14 +316,11 @@ export class AuthService {
   }
 
   async signout(userId: UUID): Promise<void> {
-    const repo = this._getRepo().createQueryBuilder('sessions');
-    const sessions = await repo
+    await this._getRepo()
+      .createQueryBuilder()
+      .update()
+      .set({ revokedAt: new Date() })
       .where('user_id = :userId AND revoked_at IS NULL', { userId })
-      .getMany();
-
-    for (const session of sessions) {
-      session.revokedAt = new Date(Date.now());
-      await session.save();
-    }
+      .execute();
   }
 }
