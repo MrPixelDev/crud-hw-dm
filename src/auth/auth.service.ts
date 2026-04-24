@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -20,21 +21,26 @@ import {
   IRefreshTokenPayload,
   ITokenPair,
 } from 'src/common/interfaces/auth.interface';
-import { randomUUID } from 'crypto';
+import { randomUUID, UUID } from 'crypto';
 import { parseDurationToMs } from 'src/common/utilities/dt.utility';
-import { RefreshTokenDto, SigninDto, SignupDto } from './dto/auth.dto';
+import {
+  ChangePasswordDto,
+  RefreshTokenDto,
+  SigninDto,
+  SignupDto,
+} from './dto/auth.dto';
 import * as argon2 from 'argon2';
 
 @Injectable()
 export class AuthService {
   private static readonly _PG_UQ_VIOLATION = '23505';
   constructor(
-    private readonly _usersSvc: UsersService,
     private readonly _jwtSvc: JwtService,
     private readonly _configSvc: ConfigService,
     private readonly _dataSrc: DataSource,
     @InjectRepository(SessionEntity)
-    private readonly _sessionsRepo: Repository<SessionEntity>
+    private readonly _sessionsRepo: Repository<SessionEntity>,
+    private readonly _usersSvc: UsersService
   ) {}
 
   private _getRepo(manager?: EntityManager): Repository<SessionEntity> {
@@ -117,6 +123,10 @@ export class AuthService {
     const user = await this._usersSvc.findByLoginWithPasswordHash(login);
     if (!user) {
       throw new UnauthorizedException('Invalid login or password');
+    }
+
+    if (user.deletedAt) {
+      throw new UnauthorizedException('User has been deleted.');
     }
 
     const isPasswordValid = await argon2.verify(
@@ -273,5 +283,47 @@ export class AuthService {
         nextRefreshJti
       );
     });
+  }
+
+  async changePassword(
+    login: string,
+    newPasswordDto: ChangePasswordDto
+  ): Promise<ITokenPair | void> {
+    await this._validateUser(login, newPasswordDto.password);
+
+    try {
+      return await this._dataSrc.transaction(async manager => {
+        const user = await this._usersSvc.findByLoginWithPasswordHash(
+          login,
+          manager
+        );
+
+        if (!user) {
+          throw new NotFoundException('User not found');
+        }
+
+        const newPasswordHash = await argon2.hash(newPasswordDto.newPassword);
+        user.passwordHash = newPasswordHash;
+
+        await manager.save(user);
+
+        return await this._createSessionAndIssueTokens(user, manager);
+      });
+    } catch (e) {
+      this._rethrowKnownDbErrors(e);
+      throw e;
+    }
+  }
+
+  async signout(userId: UUID): Promise<void> {
+    const repo = this._getRepo().createQueryBuilder('sessions');
+    const sessions = await repo
+      .where('user_id = :userId AND revoked_at IS NULL', { userId })
+      .getMany();
+
+    for (const session of sessions) {
+      session.revokedAt = new Date(Date.now());
+      await session.save();
+    }
   }
 }
