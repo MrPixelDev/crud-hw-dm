@@ -19,5 +19,18 @@ services:
       timeout: 5s
       retries: 10
 
+  minio:
+    image: minio/minio
+    command: server --address ":10000" --console-address ":10001" /data
+    ports:
+      - '10000:10000'
+      - '10001:10001'
+    volumes:
+      - minio_storage:/data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+
 volumes:
   postgres_data:
+  minio_storage:

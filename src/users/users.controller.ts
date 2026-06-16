@@ -23,7 +23,7 @@ import {
   ProfileResponseDto,
   UpdateUserDto,
 } from './dto/profile.dto';
-import { SWAGGER_BEARER_SCHEME } from 'src/common/swagger/swagger.config';
+import { SWAGGER_BEARER_SCHEME } from 'src/common/consts/swagger.consts';
 
 @ApiTags('Профиль')
 @ApiBearerAuth(SWAGGER_BEARER_SCHEME)

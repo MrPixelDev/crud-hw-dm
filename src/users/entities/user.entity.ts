@@ -1,5 +1,6 @@
 import type { UUID } from 'crypto';
 import { SessionEntity } from 'src/auth/entities/session.entity';
+import { ContentEntity } from 'src/contents/entities/contents.entities';
 import {
   BaseEntity,
   Column,
@@ -39,6 +40,9 @@ export class UserEntity extends BaseEntity {
 
   @OneToMany(() => SessionEntity, sessionEntity => sessionEntity.user)
   sessions!: SessionEntity[];
+
+  @OneToMany(() => ContentEntity, contentEntity => contentEntity.user)
+  contents!: ContentEntity[];
 
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
   createdAt!: Date;

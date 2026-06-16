@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class SoftDeleteUser1776181938633 implements MigrationInterface {
   name = 'SoftDeleteUser1776181938633';

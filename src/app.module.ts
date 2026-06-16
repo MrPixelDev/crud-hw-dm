@@ -1,9 +1,11 @@
-// import * as path from 'path';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { ContentsModule } from './contents/contents.module';
+import { FilesModule } from './providers/files.module';
+import { S3Module } from './providers/s3/s3.module';
 
 @Module({
   imports: [
@@ -19,7 +21,7 @@ import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
         username: configSvc.get<string>('DB_USERNAME'),
         password: configSvc.get<string>('DB_PASSWORD'),
         database: configSvc.get<string>('DB_NAME'),
-        entities: ['dist/**/*.entity{.ts,.js}'],
+        entities: ['dist/**/*.entity{.ts,.js}', 'dist/**/*.entities{.ts,.js}'],
         migrations: ['src/databases/migrations/*{.ts,.js}'],
         // entities: [path.join(__dirname, '**/*.entity{.ts,.js}')],
         // migrations: [path.join(__dirname, 'migrations/**/*{.ts,.js}')],
@@ -30,6 +32,9 @@ import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
     }),
     AuthModule,
     UsersModule,
+    FilesModule,
+    S3Module,
+    ContentsModule,
   ],
   controllers: [],
   providers: [],

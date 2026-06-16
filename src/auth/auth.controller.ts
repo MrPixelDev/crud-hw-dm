@@ -24,7 +24,7 @@ import {
 import { AccessTokenGuard } from './guards/access-token.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { UUID } from 'crypto';
-import { SWAGGER_BEARER_SCHEME } from 'src/common/swagger/swagger.config';
+import { SWAGGER_BEARER_SCHEME } from 'src/common/consts/swagger.consts';
 
 @ApiTags('Аутентификация')
 @Controller('auth')
