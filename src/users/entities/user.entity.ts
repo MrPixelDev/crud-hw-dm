@@ -7,6 +7,7 @@ import {
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
+  Index,
   OneToMany,
   PrimaryColumn,
   Unique,
@@ -16,6 +17,13 @@ import {
 @Entity('users')
 @Unique('UQ_users_login', ['login'])
 @Unique('UQ_users_email', ['email'])
+@Index(
+  'IDX_users_descr_age_avatar_count',
+  ['userId', 'age', 'activeAvatarCount'],
+  {
+    where: `"description" IS NOT NULL AND btrim("description") <> ''`,
+  }
+)
 export class UserEntity extends BaseEntity {
   @Column({ type: 'int', generated: 'increment' })
   id!: number;
@@ -43,6 +51,20 @@ export class UserEntity extends BaseEntity {
 
   @OneToMany(() => ContentEntity, contentEntity => contentEntity.user)
   contents!: ContentEntity[];
+
+  @Column({
+    type: 'int',
+    name: 'active_avatar_count',
+    default: 0,
+  })
+  activeAvatarCount!: number;
+
+  @Column({
+    type: 'varchar',
+    length: 512,
+    default: null,
+  })
+  avatar!: string | null;
 
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
   createdAt!: Date;

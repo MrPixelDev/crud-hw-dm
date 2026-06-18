@@ -5,12 +5,14 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
   HttpCode,
   HttpStatus,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
@@ -19,8 +21,9 @@ import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { UUID } from 'crypto';
 import {
   AllProfileRequestDto,
-  AllProfileResponseDto,
+  GetAgesRangeDto,
   ProfileResponseDto,
+  ProfilesResponseDto,
   UpdateUserDto,
 } from './dto/profile.dto';
 import { SWAGGER_BEARER_SCHEME } from 'src/common/consts/swagger.consts';
@@ -52,12 +55,30 @@ export class ProfileController {
   })
   @ApiOkResponse({
     description: 'Список профилей получен.',
-    type: AllProfileResponseDto,
+    type: ProfilesResponseDto,
   })
   @UseGuards(AccessTokenGuard)
   @Post('all')
   getAllProfiles(@Body() data: AllProfileRequestDto) {
     return this._usersSvc.getAllProfiles(data);
+  }
+
+  @ApiOperation({
+    summary: 'Список наиболее активных пользователей',
+    description:
+      'Возвращает список пользователей с >2 аватарок, с описанием и с возрасом в переданном промежутке',
+  })
+  @ApiOkResponse({
+    description: 'Список профилей получен.',
+    type: ProfilesResponseDto,
+  })
+  @UseGuards(AccessTokenGuard)
+  @Get('most-active')
+  getMostActiveUsers(@Query() req: GetAgesRangeDto) {
+    if (req.from > req.to) {
+      throw new BadRequestException('from must be <= to');
+    }
+    return this._usersSvc.getMostActiveUsers([req.from, req.to]);
   }
 
   @ApiOperation({

@@ -11,6 +11,7 @@ import {
   Min,
   ValidateNested,
   Validate,
+  ValidateIf,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { AtLeastOneField } from 'src/common/utilities/validators.utility';
@@ -44,6 +45,16 @@ export class ProfileResponseDto {
   description!: string;
 
   @ApiProperty({
+    description: 'Аватар пользователя',
+  })
+  avatar!: string | null;
+
+  @ApiProperty({
+    description: 'Количество аватарок пользователя',
+  })
+  activeAvatarCount!: number;
+
+  @ApiProperty({
     description: 'Дата создания профиля.',
   })
   createdAt!: Date;
@@ -59,6 +70,8 @@ export class ProfileResponseDto {
     this.email = user.email;
     this.age = user.age;
     this.description = user.description;
+    this.avatar = user.avatar;
+    this.activeAvatarCount = user.activeAvatarCount;
     this.createdAt = user.createdAt;
     this.updatedAt = user.updatedAt;
   }
@@ -113,7 +126,7 @@ export class AllProfileRequestDto {
   filter?: UserFilterDto;
 }
 
-export class AllProfileResponseDto {
+export class ProfilesResponseDto {
   @ApiProperty({
     description: 'Список найденных профилей.',
     type: () => ProfileResponseDto,
@@ -182,4 +195,21 @@ export class UpdateUserDto implements Partial<
 
   @Validate(AtLeastOneField, ['age', 'description'])
   private readonly _atLeastOneFieldCheck?: never;
+}
+
+export class GetAgesRangeDto {
+  @IsInt()
+  @IsNotEmpty()
+  @Min(1)
+  @Max(150)
+  from!: number;
+
+  @IsInt()
+  @IsNotEmpty()
+  @Min(1)
+  @Max(150)
+  to!: number;
+
+  @ValidateIf((req: GetAgesRangeDto) => req.from > req.to)
+  invalidRange?: never;
 }

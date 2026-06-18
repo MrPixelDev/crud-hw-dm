@@ -6,12 +6,12 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UserEntity } from './entities/user.entity';
-import { EntityManager, Repository } from 'typeorm';
+import { Between, EntityManager, MoreThan, Raw, Repository } from 'typeorm';
 import { ISignupParams } from 'src/common/interfaces/auth.interface';
 import {
   AllProfileRequestDto,
-  AllProfileResponseDto,
   ProfileResponseDto,
+  ProfilesResponseDto,
   UpdateUserDto,
 } from './dto/profile.dto';
 import { randomUUID, UUID } from 'crypto';
@@ -120,7 +120,7 @@ export class UsersService {
 
   async getAllProfiles(
     data: AllProfileRequestDto
-  ): Promise<AllProfileResponseDto> {
+  ): Promise<ProfilesResponseDto> {
     const { users, total, totalPages } = await this.getUsers({
       pagination: true,
       page: data.page,
@@ -128,13 +128,38 @@ export class UsersService {
       filter: data.filter,
     });
 
-    return new AllProfileResponseDto(
+    return new ProfilesResponseDto(
       users,
       total,
       data.page,
       data.limit,
       totalPages
     );
+  }
+
+  async getMostActiveUsers(
+    ages: [number, number],
+    manager?: EntityManager
+  ): Promise<ProfilesResponseDto> {
+    const [from, to] = ages;
+
+    const repo = this._getRepo(manager);
+
+    const result = await repo.find({
+      where: {
+        activeAvatarCount: MoreThan(2),
+        description: Raw(
+          alias => `${alias} IS NOT NULL AND btrim(${alias}) <> ''`
+        ),
+        age: Between(from, to),
+      },
+      order: {
+        activeAvatarCount: 'DESC',
+        userId: 'ASC',
+      },
+    });
+
+    return new ProfilesResponseDto(result, result.length, 1, result.length, 1);
   }
 
   async updateUser(

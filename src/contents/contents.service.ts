@@ -11,7 +11,7 @@ import {
 } from './dto/contents.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ContentEntity } from './entities/contents.entities';
-import { EntityManager, IsNull, Repository } from 'typeorm';
+import { DataSource, EntityManager, IsNull, Repository } from 'typeorm';
 import { randomUUID, type UUID } from 'crypto';
 import { UploadFilePayloadDto } from 'src/providers/s3/dto/upload-file-payload.dto';
 import {
@@ -20,12 +20,14 @@ import {
   MAX_ACTIVE_AVATARS,
 } from 'src/common/consts/contents.consts';
 import { AvatarFileWorkerService } from 'src/common/workers/avatar-file-worker.service';
+import { UserEntity } from 'src/users/entities/user.entity';
 
 @Injectable()
 export class ContentsService {
   constructor(
     private readonly _filesSvc: IFileService,
     private readonly _avatarWorkerSvc: AvatarFileWorkerService,
+    private readonly _dataSrc: DataSource,
     @InjectRepository(ContentEntity)
     private readonly _contentRepo: Repository<ContentEntity>
   ) {}
@@ -66,8 +68,6 @@ export class ContentsService {
   ): Promise<AvatarContentResponseDto> {
     const repo = this._getRepo(manager);
 
-    await this._assertAvatarLimit(repo, userId);
-
     const processedFile = await this._avatarWorkerSvc.process(file);
 
     const { path } = await this._filesSvc.uploadFile(
@@ -82,15 +82,60 @@ export class ContentsService {
       )
     );
 
-    const content = repo.create({
-      userId,
-      type: ContentsTypesEnum.AVATAR,
-      fileName: path,
+    const newContent = await this._dataSrc.transaction(async manager => {
+      const updateResult = await manager
+        .createQueryBuilder()
+        .update(UserEntity)
+        .set({
+          activeAvatarCount: () => '"active_avatar_count" + 1',
+          avatar: file.originalname,
+        })
+        .where('user_id = :userId', { userId })
+        .andWhere('"active_avatar_count" < 5')
+        .execute();
+
+      if (!updateResult.affected) {
+        throw new ConflictException(
+          'Number of avatars must not be greater than 5'
+        );
+      }
+
+      try {
+        return await repo.save({
+          userId,
+          type: ContentsTypesEnum.AVATAR,
+          fileName: path,
+          originalName: file.originalname,
+        });
+      } catch (e) {
+        await manager
+          .createQueryBuilder()
+          .update(UserEntity)
+          .set({
+            activeAvatarCount: () => '"active_avatar_count" - 1',
+            avatar: () => `
+              (
+                SELECT original_name
+                FROM contents
+                WHERE user_id = :userId
+                  AND type = :avatarType
+                  AND deleted_at IS NULL
+                ORDER BY created_at DESC, content_id DESC
+                LIMIT 1
+              )
+            `,
+          })
+          .where('user_id = :userId', { userId })
+          .setParameters({
+            userId,
+            avatarType: ContentsTypesEnum.AVATAR,
+          })
+          .execute();
+        throw e;
+      }
     });
 
-    const savedContent = await repo.save(content);
-
-    return new AvatarContentResponseDto(savedContent);
+    return new AvatarContentResponseDto(newContent);
   }
 
   async deleteAvatar(
@@ -99,16 +144,43 @@ export class ContentsService {
     manager?: EntityManager
   ): Promise<DeleteAvatarResponseDto> {
     const repo = this._getRepo(manager);
-    const deleteResult = await repo.softDelete({
-      contentId,
-      userId,
-      type: ContentsTypesEnum.AVATAR,
-      deletedAt: IsNull(),
-    });
 
-    if (!deleteResult.affected) {
-      throw new NotFoundException('Avatar not found');
-    }
+    await this._dataSrc.transaction(async manager => {
+      const deleteResult = await repo.softDelete({
+        contentId,
+        userId,
+        type: ContentsTypesEnum.AVATAR,
+        deletedAt: IsNull(),
+      });
+
+      if (!deleteResult.affected) {
+        throw new NotFoundException('Avatar not found');
+      }
+
+      await manager
+        .createQueryBuilder()
+        .update(UserEntity)
+        .set({
+          activeAvatarCount: () => '"active_avatar_count" - 1',
+          avatar: () => `
+              (
+                SELECT original_name
+                FROM contents
+                WHERE user_id = :userId
+                  AND type = :avatarType
+                  AND deleted_at IS NULL
+                ORDER BY created_at DESC, content_id DESC
+                LIMIT 1
+              )
+            `,
+        })
+        .where('user_id = :userId', { userId })
+        .setParameters({
+          userId,
+          avatarType: ContentsTypesEnum.AVATAR,
+        })
+        .execute();
+    });
 
     return { ok: true };
   }

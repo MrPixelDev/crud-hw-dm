@@ -41,6 +41,14 @@ export class ContentEntity extends BaseEntity {
   @Column({ type: 'varchar', name: 'file_name', length: 512 })
   fileName!: string;
 
+  @Column({
+    type: 'varchar',
+    name: 'original_name',
+    length: 512,
+    default: 'unnamed.png',
+  })
+  originalName!: string;
+
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
   createdAt!: Date;
 
