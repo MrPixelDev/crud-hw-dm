@@ -6,6 +6,7 @@ import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ContentsModule } from './contents/contents.module';
 import { FilesModule } from './providers/files.module';
 import { S3Module } from './providers/s3/s3.module';
+import { CacheModule } from './cache/cache.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { S3Module } from './providers/s3/s3.module';
     FilesModule,
     S3Module,
     ContentsModule,
+    CacheModule,
   ],
   controllers: [],
   providers: [],

@@ -14,12 +14,18 @@ import {
   ProfilesResponseDto,
   UpdateUserDto,
 } from './dto/profile.dto';
-import { randomUUID, UUID } from 'crypto';
+import { createHash, randomUUID, UUID } from 'crypto';
 import {
   defaultGetUsersParams,
   IGetUsersParams,
 } from 'src/common/interfaces/user.interface';
 import { AuthService } from 'src/auth/auth.service';
+import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
+import {
+  PROFILE_ALL_CACHE_INDEX_KEY,
+  PROFILE_ALL_CACHE_PREFIX,
+  PROFILE_MY_CACHE_PREFIX,
+} from 'src/common/consts/cache.constants';
 
 @Injectable()
 export class UsersService {
@@ -27,11 +33,98 @@ export class UsersService {
     @InjectRepository(UserEntity)
     private readonly _usersRepo: Repository<UserEntity>,
     @Inject(forwardRef(() => AuthService))
-    private readonly _authSvc: AuthService
+    private readonly _authSvc: AuthService,
+    @Inject(CACHE_MANAGER)
+    private readonly _cacheManager: Cache
   ) {}
 
   private _getRepo(manager?: EntityManager): Repository<UserEntity> {
     return manager ? manager.getRepository(UserEntity) : this._usersRepo;
+  }
+
+  private _getOwnProfileCacheKey(userId: UUID): string {
+    return `${PROFILE_MY_CACHE_PREFIX}:${userId}`;
+  }
+
+  private _getAllProfilesCacheKey(data: AllProfileRequestDto): string {
+    const filterHash = createHash('sha256')
+      .update(JSON.stringify(data))
+      .digest('hex')
+      .slice(0, 16);
+
+    return `${PROFILE_ALL_CACHE_PREFIX}:${filterHash}`;
+  }
+
+  private async _getCachedValue<T>(key: string): Promise<T | null> {
+    try {
+      return (await this._cacheManager.get<T>(key)) ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async _setCachedValue<T>(key: string, value: T): Promise<void> {
+    try {
+      await this._cacheManager.set(key, value);
+    } catch {
+      return;
+    }
+  }
+
+  private async _deleteCachedValue(key: string): Promise<void> {
+    try {
+      await this._cacheManager.del(key);
+    } catch {
+      return;
+    }
+  }
+
+  private async _registerAllProfilesCacheKey(key: string): Promise<void> {
+    const keys =
+      (await this._getCachedValue<string[]>(PROFILE_ALL_CACHE_INDEX_KEY)) ?? [];
+
+    await this._setCachedValue(PROFILE_ALL_CACHE_INDEX_KEY, [...keys, key]);
+  }
+
+  private async _deleteAllProfilesCache(): Promise<void> {
+    const keys =
+      (await this._getCachedValue<string[]>(PROFILE_ALL_CACHE_INDEX_KEY)) ?? [];
+
+    try {
+      if (keys.length) {
+        await this._cacheManager.mdel(keys);
+      }
+    } catch {
+      return;
+    } finally {
+      await this._deleteCachedValue(PROFILE_ALL_CACHE_INDEX_KEY);
+    }
+  }
+
+  private async _deleteProfileCache(userId: UUID): Promise<void> {
+    await this._deleteCachedValue(this._getOwnProfileCacheKey(userId));
+    await this._deleteAllProfilesCache();
+  }
+
+  private _restoreProfileResponse(
+    profile: ProfileResponseDto
+  ): ProfileResponseDto {
+    return {
+      ...profile,
+      createdAt: new Date(profile.createdAt),
+      updatedAt: new Date(profile.updatedAt),
+    };
+  }
+
+  private _restoreProfilesResponse(
+    profiles: ProfilesResponseDto
+  ): ProfilesResponseDto {
+    return {
+      ...profiles,
+      users: profiles.users.map(profile =>
+        this._restoreProfileResponse(profile)
+      ),
+    };
   }
 
   async create(
@@ -41,7 +134,11 @@ export class UsersService {
     const userId = randomUUID();
     const repo = this._getRepo(manager);
     const user = repo.create({ userId, ...data });
-    return repo.save(user);
+    const savedUser = await repo.save(user);
+
+    await this._deleteAllProfilesCache();
+
+    return savedUser;
   }
 
   async findById(
@@ -109,18 +206,38 @@ export class UsersService {
   }
 
   async getOwnProfile(userId: UUID): Promise<ProfileResponseDto> {
+    const cacheKey = this._getOwnProfileCacheKey(userId);
+    const cachedProfile =
+      await this._getCachedValue<ProfileResponseDto>(cacheKey);
+
+    if (cachedProfile) {
+      return this._restoreProfileResponse(cachedProfile);
+    }
+
     const user = await this.findByUserId(userId);
 
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    return new ProfileResponseDto(user);
+    const profile = new ProfileResponseDto(user);
+
+    await this._setCachedValue(cacheKey, profile);
+
+    return profile;
   }
 
   async getAllProfiles(
     data: AllProfileRequestDto
   ): Promise<ProfilesResponseDto> {
+    const cacheKey = this._getAllProfilesCacheKey(data);
+    const cachedProfiles =
+      await this._getCachedValue<ProfilesResponseDto>(cacheKey);
+
+    if (cachedProfiles) {
+      return this._restoreProfilesResponse(cachedProfiles);
+    }
+
     const { users, total, totalPages } = await this.getUsers({
       pagination: true,
       page: data.page,
@@ -128,13 +245,18 @@ export class UsersService {
       filter: data.filter,
     });
 
-    return new ProfilesResponseDto(
+    const profiles = new ProfilesResponseDto(
       users,
       total,
       data.page,
       data.limit,
       totalPages
     );
+
+    await this._setCachedValue(cacheKey, profiles);
+    await this._registerAllProfilesCacheKey(cacheKey);
+
+    return profiles;
   }
 
   async getMostActiveUsers(
@@ -176,6 +298,8 @@ export class UsersService {
     const updatedUser = Object.assign(currentUser, data);
     const savedUser = await repo.save(updatedUser);
 
+    await this._deleteProfileCache(userId);
+
     return new ProfileResponseDto(savedUser);
   }
 
@@ -190,6 +314,8 @@ export class UsersService {
     if (type === 'soft') {
       await repo.softDelete({ userId });
     }
+
+    await this._deleteProfileCache(userId);
 
     return await this._authSvc.signout(userId);
   }

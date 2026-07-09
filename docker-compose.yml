@@ -29,6 +29,16 @@ services:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
 
+  redis:
+    image: redis:alpine3.16
+    container_name: redis-wsbe
+    env_file: .env
+    command: >
+      --requirepass ${REDIS_PASSWORD} --port ${REDIS_PORT}
+    ports:
+      - '${REDIS_PORT}:${REDIS_PORT}'
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   minio_storage:
