@@ -1,5 +1,10 @@
 import type { UUID } from 'crypto';
 import { SessionEntity } from 'src/auth/entities/session.entity';
+import {
+  BALANCE_DEFAULT,
+  BALANCE_PRECISION,
+  BALANCE_SCALE,
+} from 'src/common/consts/balance.constants';
 import { ContentEntity } from 'src/contents/entities/contents.entities';
 import {
   BaseEntity,
@@ -12,11 +17,13 @@ import {
   PrimaryColumn,
   Unique,
   UpdateDateColumn,
+  Check,
 } from 'typeorm';
 
 @Entity('users')
 @Unique('UQ_users_login', ['login'])
 @Unique('UQ_users_email', ['email'])
+@Check('Check_positive_balance', '"balance" >= 0')
 @Index(
   'IDX_users_descr_age_avatar_count',
   ['userId', 'age', 'activeAvatarCount'],
@@ -45,6 +52,14 @@ export class UserEntity extends BaseEntity {
 
   @Column({ type: 'varchar', length: 1000 })
   description!: string;
+
+  @Column({
+    type: 'numeric',
+    precision: BALANCE_PRECISION,
+    scale: BALANCE_SCALE,
+    default: BALANCE_DEFAULT,
+  })
+  balance!: string;
 
   @OneToMany(() => SessionEntity, sessionEntity => sessionEntity.user)
   sessions!: SessionEntity[];

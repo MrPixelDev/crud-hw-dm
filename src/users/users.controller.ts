@@ -24,6 +24,7 @@ import {
   GetAgesRangeDto,
   ProfileResponseDto,
   ProfilesResponseDto,
+  TransferMoneyRequestDto,
   UpdateUserDto,
 } from './dto/profile.dto';
 import { SWAGGER_BEARER_SCHEME } from 'src/common/consts/swagger.consts';
@@ -79,6 +80,28 @@ export class ProfileController {
       throw new BadRequestException('from must be <= to');
     }
     return this._usersSvc.getMostActiveUsers([req.from, req.to]);
+  }
+
+  @ApiOperation({
+    summary: 'Перевести деньги пользователю.',
+    description:
+      'Переводит указанную сумму с баланса текущего пользователя на баланс другого пользователя.',
+  })
+  @ApiOkResponse({
+    description:
+      'Перевод успешно выполнен. Возвращается профиль текущего пользователя с обновленным балансом.',
+    type: ProfileResponseDto,
+  })
+  @UseGuards(AccessTokenGuard)
+  @Post('transfer')
+  transferBalance(
+    @CurrentUser('sub') userId: UUID,
+    @Body() data: TransferMoneyRequestDto
+  ) {
+    if (userId === data.recipientId) {
+      throw new BadRequestException('ID отправителя и получателя совпадают');
+    }
+    return this._usersSvc.transferMoney(userId, data);
   }
 
   @ApiOperation({

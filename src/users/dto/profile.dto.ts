@@ -12,11 +12,17 @@ import {
   ValidateNested,
   Validate,
   ValidateIf,
+  IsUUID,
+  Matches,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { AtLeastOneField } from 'src/common/utilities/validators.utility';
 import { SignupDto } from 'src/auth/dto/auth.dto';
-import { UserFilter } from 'src/common/interfaces/user.interface';
+import {
+  IProfileResponseOptions,
+  UserFilter,
+} from 'src/common/interfaces/user.interface';
+import { BALANCE_AMOUNT_PATTERN } from 'src/common/consts/balance.constants';
 
 export class ProfileResponseDto {
   @ApiProperty({
@@ -54,6 +60,12 @@ export class ProfileResponseDto {
   })
   activeAvatarCount!: number;
 
+  @ApiPropertyOptional({
+    description: 'Баланс пользователя',
+    example: '20.51',
+  })
+  balance?: string;
+
   @ApiProperty({
     description: 'Дата создания профиля.',
   })
@@ -64,7 +76,7 @@ export class ProfileResponseDto {
   })
   updatedAt!: Date;
 
-  constructor(user: UserEntity) {
+  constructor(user: UserEntity, options?: IProfileResponseOptions) {
     this.userId = user.userId;
     this.login = user.login;
     this.email = user.email;
@@ -72,6 +84,9 @@ export class ProfileResponseDto {
     this.description = user.description;
     this.avatar = user.avatar;
     this.activeAvatarCount = user.activeAvatarCount;
+    if (options && options.includeBalance) {
+      this.balance = user.balance;
+    }
     this.createdAt = user.createdAt;
     this.updatedAt = user.updatedAt;
   }
@@ -212,4 +227,17 @@ export class GetAgesRangeDto {
 
   @ValidateIf((req: GetAgesRangeDto) => req.from > req.to)
   invalidRange?: never;
+}
+
+export class TransferMoneyRequestDto {
+  @IsUUID()
+  @IsNotEmpty()
+  recipientId!: UUID;
+
+  @IsString()
+  @IsNotEmpty()
+  @Matches(BALANCE_AMOUNT_PATTERN, {
+    message: 'Неправильный формат значения amount.',
+  })
+  amount!: string;
 }

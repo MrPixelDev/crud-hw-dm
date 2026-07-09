@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   forwardRef,
   Inject,
   Injectable,
@@ -12,13 +13,13 @@ import {
   AllProfileRequestDto,
   ProfileResponseDto,
   ProfilesResponseDto,
+  TransferMoneyRequestDto,
   UpdateUserDto,
 } from './dto/profile.dto';
-import { createHash, randomUUID, UUID } from 'crypto';
-import {
-  defaultGetUsersParams,
-  IGetUsersParams,
-} from 'src/common/interfaces/user.interface';
+import { createHash, randomUUID } from 'crypto';
+import type { UUID } from 'crypto';
+import { defaultGetUsersParams } from 'src/common/interfaces/user.interface';
+import type { IGetUsersParams } from 'src/common/interfaces/user.interface';
 import { AuthService } from 'src/auth/auth.service';
 import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
 import {
@@ -26,6 +27,8 @@ import {
   PROFILE_ALL_CACHE_PREFIX,
   PROFILE_MY_CACHE_PREFIX,
 } from 'src/common/consts/cache.constants';
+import { MAX_BALANCE } from 'src/common/consts/balance.constants';
+import { IsolationLevel, Transactional } from 'typeorm-transactional';
 
 @Injectable()
 export class UsersService {
@@ -104,6 +107,19 @@ export class UsersService {
   private async _deleteProfileCache(userId: UUID): Promise<void> {
     await this._deleteCachedValue(this._getOwnProfileCacheKey(userId));
     await this._deleteAllProfilesCache();
+  }
+
+  private _moneyStrToNum(value: string): number {
+    const [wholes, fraction = ''] = value.split('.');
+
+    return Number(wholes) * 100 + Number(fraction.padEnd(2, '0'));
+  }
+
+  private _moneyNumToStr(value: number): string {
+    const wholes = Math.floor(value / 100);
+    const fraction = String(value % 100).padStart(2, '0');
+
+    return `${wholes}.${fraction}`;
   }
 
   private _restoreProfileResponse(
@@ -220,7 +236,7 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const profile = new ProfileResponseDto(user);
+    const profile = new ProfileResponseDto(user, { includeBalance: true });
 
     await this._setCachedValue(cacheKey, profile);
 
@@ -284,6 +300,52 @@ export class UsersService {
     return new ProfilesResponseDto(result, result.length, 1, result.length, 1);
   }
 
+  @Transactional({ isolationLevel: IsolationLevel.READ_COMMITTED })
+  async transferMoney(
+    senderId: UUID,
+    data: TransferMoneyRequestDto
+  ): Promise<ProfileResponseDto> {
+    const users = await this._usersRepo
+      .createQueryBuilder('user')
+      .setLock('pessimistic_write')
+      .where('user.userId IN (:...userIds)', {
+        userIds: [senderId, data.recipientId],
+      })
+      .orderBy('user.userId', 'ASC')
+      .getMany();
+
+    const sender = users.find(user => user.userId === senderId);
+    const recipient = users.find(user => user.userId === data.recipientId);
+
+    if (!(sender && recipient)) {
+      throw new NotFoundException('User not found');
+    }
+
+    const amount = this._moneyStrToNum(data.amount);
+    const senderBalance = this._moneyStrToNum(sender.balance);
+    const recipientBalance = this._moneyStrToNum(recipient.balance);
+
+    if (senderBalance < amount) {
+      throw new ConflictException('Insufficient balance');
+    }
+
+    if (recipientBalance + amount > MAX_BALANCE) {
+      throw new ConflictException('Recipient balance limit exceeded');
+    }
+
+    const newSenderBalance = this._moneyNumToStr(senderBalance - amount);
+    const newRecipientBalance = this._moneyNumToStr(recipientBalance + amount);
+
+    sender.balance = newSenderBalance;
+    recipient.balance = newRecipientBalance;
+
+    await this._usersRepo.save([sender, recipient]);
+    await this._deleteProfileCache(senderId);
+    await this._deleteProfileCache(data.recipientId);
+
+    return new ProfileResponseDto(sender, { includeBalance: true });
+  }
+
   async updateUser(
     userId: UUID,
     data: UpdateUserDto
@@ -300,7 +362,7 @@ export class UsersService {
 
     await this._deleteProfileCache(userId);
 
-    return new ProfileResponseDto(savedUser);
+    return new ProfileResponseDto(savedUser, { includeBalance: true });
   }
 
   async deleteUser(userId: UUID, type: 'soft' | 'hard'): Promise<void> {
