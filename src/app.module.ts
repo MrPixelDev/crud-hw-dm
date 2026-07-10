@@ -12,6 +12,7 @@ import {
   addTransactionalDataSource,
   deleteDataSourceByName,
 } from 'typeorm-transactional';
+import { BalanceResetModule } from './balance-reset/balance-reset.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import {
     S3Module,
     ContentsModule,
     CacheModule,
+    BalanceResetModule,
   ],
   controllers: [],
   providers: [],

@@ -27,7 +27,10 @@ import {
   PROFILE_ALL_CACHE_PREFIX,
   PROFILE_MY_CACHE_PREFIX,
 } from 'src/common/consts/cache.constants';
-import { MAX_BALANCE } from 'src/common/consts/balance.constants';
+import {
+  BALANCE_DEFAULT,
+  MAX_BALANCE,
+} from 'src/common/consts/balance.constants';
 import { IsolationLevel, Transactional } from 'typeorm-transactional';
 
 @Injectable()
@@ -344,6 +347,19 @@ export class UsersService {
     await this._deleteProfileCache(data.recipientId);
 
     return new ProfileResponseDto(sender, { includeBalance: true });
+  }
+
+  @Transactional({ isolationLevel: IsolationLevel.READ_COMMITTED })
+  async resetBalances(): Promise<void> {
+    await this._usersRepo
+      .createQueryBuilder('user')
+      .update(UserEntity)
+      .set({ balance: BALANCE_DEFAULT })
+      .where('deleted_at IS NULL')
+      .andWhere('balance <> :balance', { balance: BALANCE_DEFAULT })
+      .execute();
+
+    await this._deleteAllProfilesCache();
   }
 
   async updateUser(
