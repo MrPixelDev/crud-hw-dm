@@ -6,51 +6,40 @@ import {
 import { IFileService } from 'src/providers/files.adapter';
 import type { IUploadedMulterFile } from 'src/common/interfaces/upload-file.interface';
 import {
+  AvatarContentDto,
   AvatarContentResponseDto,
   DeleteAvatarResponseDto,
 } from './dto/contents.dto';
-import { InjectRepository } from '@nestjs/typeorm';
 import { ContentEntity } from './entities/contents.entities';
-import { DataSource, EntityManager, IsNull, Repository } from 'typeorm';
+import { DataSource, IsNull } from 'typeorm';
 import { randomUUID, type UUID } from 'crypto';
 import { UploadFilePayloadDto } from 'src/providers/s3/dto/upload-file-payload.dto';
 import {
   AVATAR_FOLDER,
   ContentsTypesEnum,
-  MAX_ACTIVE_AVATARS,
 } from 'src/common/consts/contents.consts';
 import { AvatarFileWorkerService } from 'src/common/workers/avatar-file-worker.service';
 import { UserEntity } from 'src/users/entities/user.entity';
+import { RemoveFilePayloadDto } from 'src/providers/s3/dto/remove-file-payload.dto';
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class ContentsService {
   constructor(
+    private readonly _usersSvc: UsersService,
     private readonly _filesSvc: IFileService,
     private readonly _avatarWorkerSvc: AvatarFileWorkerService,
-    private readonly _dataSrc: DataSource,
-    @InjectRepository(ContentEntity)
-    private readonly _contentRepo: Repository<ContentEntity>
+    private readonly _dataSrc: DataSource
   ) {}
 
-  private _getRepo(manager?: EntityManager): Repository<ContentEntity> {
-    return manager ? manager.getRepository(ContentEntity) : this._contentRepo;
-  }
+  private _normalizeOriginalName(originalName: string): string {
+    const normalized = originalName
+      .normalize('NFKC')
+      .replace(/[^\w.\- ]/g, '')
+      .trim()
+      .slice(0, 255);
 
-  private async _assertAvatarLimit(
-    repo: Repository<ContentEntity>,
-    userId: UUID
-  ): Promise<void> {
-    const activeAvatars = await repo.countBy({
-      userId,
-      type: ContentsTypesEnum.AVATAR,
-      deletedAt: IsNull(),
-    });
-
-    if (activeAvatars >= MAX_ACTIVE_AVATARS) {
-      throw new ConflictException(
-        'Number of avatars must not be greater than 5.'
-      );
-    }
+    return normalized || 'unnamed';
   }
 
   private _getAvatarFileName(
@@ -63,90 +52,93 @@ export class ContentsService {
 
   async createAvatar(
     userId: UUID,
-    file: IUploadedMulterFile,
-    manager?: EntityManager
+    file: IUploadedMulterFile
   ): Promise<AvatarContentResponseDto> {
-    const repo = this._getRepo(manager);
-
-    const processedFile = await this._avatarWorkerSvc.process(file);
-
-    const { path } = await this._filesSvc.uploadFile(
-      new UploadFilePayloadDto(
-        file,
-        AVATAR_FOLDER,
-        this._getAvatarFileName(
-          userId,
-          processedFile.extension,
-          processedFile.checksum
-        )
-      )
-    );
-
     const newContent = await this._dataSrc.transaction(async manager => {
-      const updateResult = await manager
-        .createQueryBuilder()
-        .update(UserEntity)
-        .set({
-          activeAvatarCount: () => '"active_avatar_count" + 1',
-          avatar: file.originalname,
-        })
-        .where('user_id = :userId', { userId })
-        .andWhere('"active_avatar_count" < 5')
-        .execute();
+      const processedFile = await this._avatarWorkerSvc.process(file);
 
-      if (!updateResult.affected) {
-        throw new ConflictException(
-          'Number of avatars must not be greater than 5'
-        );
-      }
+      const { path } = await this._filesSvc.uploadFile(
+        new UploadFilePayloadDto(
+          file,
+          AVATAR_FOLDER,
+          this._getAvatarFileName(
+            userId,
+            processedFile.extension,
+            processedFile.checksum
+          )
+        )
+      );
+
+      const normalizedOriginalName = this._normalizeOriginalName(
+        file.originalname
+      );
 
       try {
-        return await repo.save({
-          userId,
-          type: ContentsTypesEnum.AVATAR,
-          fileName: path,
-          originalName: file.originalname,
-        });
-      } catch (e) {
-        await manager
+        const updateResult = await manager
           .createQueryBuilder()
           .update(UserEntity)
           .set({
-            activeAvatarCount: () => '"active_avatar_count" - 1',
-            avatar: () => `
-              (
-                SELECT original_name
-                FROM contents
-                WHERE user_id = :userId
-                  AND type = :avatarType
-                  AND deleted_at IS NULL
-                ORDER BY created_at DESC, content_id DESC
-                LIMIT 1
-              )
-            `,
+            activeAvatarCount: () => '"active_avatar_count" + 1',
+            avatar: path,
           })
           .where('user_id = :userId', { userId })
-          .setParameters({
-            userId,
-            avatarType: ContentsTypesEnum.AVATAR,
-          })
+          .andWhere('"active_avatar_count" < 5')
           .execute();
-        throw e;
+
+        if (!updateResult.affected) {
+          throw new ConflictException(
+            'Number of avatars must not be greater than 5'
+          );
+        }
+
+        await manager.save(
+          new AvatarContentDto({
+            userId,
+            type: ContentsTypesEnum.AVATAR,
+            fileName: path,
+            originalName: normalizedOriginalName,
+          })
+        );
+
+        await this._usersSvc.deleteMostActiveUsersCache();
+
+        return await manager.findOne(ContentEntity, {
+          where: {
+            userId,
+            fileName: path,
+          },
+        });
+      } catch (error) {
+        await this._filesSvc.removeFile(new RemoveFilePayloadDto(path));
+        throw error;
       }
     });
+
+    if (!newContent) {
+      throw new NotFoundException('Something went wrong');
+    }
+
+    await this._usersSvc.deleteContentProfileCache(userId);
 
     return new AvatarContentResponseDto(newContent);
   }
 
   async deleteAvatar(
     userId: UUID,
-    contentId: number,
-    manager?: EntityManager
+    contentId: number
   ): Promise<DeleteAvatarResponseDto> {
-    const repo = this._getRepo(manager);
-
     await this._dataSrc.transaction(async manager => {
-      const deleteResult = await repo.softDelete({
+      const content = await manager.findOne(ContentEntity, {
+        where: {
+          contentId,
+        },
+      });
+
+      if (!content) {
+        throw new NotFoundException('Avatar not found');
+      }
+
+      const deleteResult = await manager.softDelete(ContentEntity, {
         contentId,
         userId,
         type: ContentsTypesEnum.AVATAR,
@@ -157,6 +149,10 @@ export class ContentsService {
         throw new NotFoundException('Avatar not found');
       }
 
+      await this._filesSvc.removeFile(
+        new RemoveFilePayloadDto(content.fileName)
+      );
+
       await manager
         .createQueryBuilder()
         .update(UserEntity)
@@ -164,7 +160,7 @@ export class ContentsService {
           activeAvatarCount: () => '"active_avatar_count" - 1',
           avatar: () => `
               (
-                SELECT original_name
+                SELECT file_name
                 FROM contents
                 WHERE user_id = :userId
                   AND type = :avatarType
@@ -181,6 +177,8 @@ export class ContentsService {
         })
         .execute();
     });
+
+    await this._usersSvc.deleteContentProfileCache(userId);
 
     return { ok: true };
   }

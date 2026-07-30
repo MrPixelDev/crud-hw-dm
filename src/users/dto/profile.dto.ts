@@ -241,3 +241,12 @@ export class TransferMoneyRequestDto {
   })
   amount!: string;
 }
+
+export class AddMoneyRequestDto {
+  @IsString()
+  @IsNotEmpty()
+  @Matches(BALANCE_AMOUNT_PATTERN, {
+    message: 'Неправильный формат значения amount.',
+  })
+  amount!: string;
+}

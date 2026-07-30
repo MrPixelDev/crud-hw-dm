@@ -3,3 +3,5 @@ export const CACHE_TTL = 30_000;
 export const PROFILE_MY_CACHE_PREFIX = 'profile:my';
 export const PROFILE_ALL_CACHE_PREFIX = 'profile:all';
 export const PROFILE_ALL_CACHE_INDEX_KEY = `${PROFILE_ALL_CACHE_PREFIX}:keys`;
+export const PROFILE_MOST_ACTIVE_CACHE_PREFIX = 'profile:most-active';
+export const PROFILE_MOST_ACTIVE_CACHE_INDEX_KEY = `${PROFILE_MOST_ACTIVE_CACHE_PREFIX}:keys`;

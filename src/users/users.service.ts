@@ -3,6 +3,7 @@ import {
   forwardRef,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -10,6 +11,7 @@ import { UserEntity } from './entities/user.entity';
 import { Between, EntityManager, MoreThan, Raw, Repository } from 'typeorm';
 import { ISignupParams } from 'src/common/interfaces/auth.interface';
 import {
+  AddMoneyRequestDto,
   AllProfileRequestDto,
   ProfileResponseDto,
   ProfilesResponseDto,
@@ -25,16 +27,24 @@ import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
 import {
   PROFILE_ALL_CACHE_INDEX_KEY,
   PROFILE_ALL_CACHE_PREFIX,
+  PROFILE_MOST_ACTIVE_CACHE_INDEX_KEY,
+  PROFILE_MOST_ACTIVE_CACHE_PREFIX,
   PROFILE_MY_CACHE_PREFIX,
 } from 'src/common/consts/cache.constants';
 import {
   BALANCE_DEFAULT,
   MAX_BALANCE,
 } from 'src/common/consts/balance.constants';
-import { IsolationLevel, Transactional } from 'typeorm-transactional';
+import {
+  IsolationLevel,
+  runOnTransactionCommit,
+  Transactional,
+} from 'typeorm-transactional';
 
 @Injectable()
 export class UsersService {
+  private readonly _logger = new Logger(UsersService.name);
+
   constructor(
     @InjectRepository(UserEntity)
     private readonly _usersRepo: Repository<UserEntity>,
@@ -61,10 +71,57 @@ export class UsersService {
     return `${PROFILE_ALL_CACHE_PREFIX}:${filterHash}`;
   }
 
+  private _getMostActiveUsersCacheKey(from: number, to: number): string {
+    return `${PROFILE_MOST_ACTIVE_CACHE_PREFIX}:${from}:${to}`;
+  }
+
+  private async _registerMostActiveUsersCacheKey(key: string): Promise<void> {
+    const keys =
+      (await this._getCachedValue<string[]>(
+        PROFILE_MOST_ACTIVE_CACHE_INDEX_KEY
+      )) ?? [];
+
+    await this._setCachedValue(PROFILE_MOST_ACTIVE_CACHE_INDEX_KEY, [
+      ...keys,
+      key,
+    ]);
+  }
+
+  private async _deleteMostActiveUsersCache(): Promise<void> {
+    const keys =
+      (await this._getCachedValue<string[]>(
+        PROFILE_MOST_ACTIVE_CACHE_INDEX_KEY
+      )) ?? [];
+
+    try {
+      if (keys.length) {
+        await this._cacheManager.mdel(keys);
+      }
+    } catch (e) {
+      this._logger.warn(
+        `Cache error deleteMostActiveUsersCache: ${e instanceof Error ? e.message : String(e)}`
+      );
+      return;
+    } finally {
+      await this._deleteCachedValue(PROFILE_MOST_ACTIVE_CACHE_INDEX_KEY);
+    }
+  }
+
   private async _getCachedValue<T>(key: string): Promise<T | null> {
     try {
-      return (await this._cacheManager.get<T>(key)) ?? null;
-    } catch {
+      const value = await this._cacheManager.get<T>(key);
+
+      if (value) {
+        this._logger.debug(`Cached ${key} value found`);
+      } else {
+        this._logger.debug(`Cached ${key} value not found`);
+      }
+
+      return value ?? null;
+    } catch (e) {
+      this._logger.warn(
+        `Cache error getting ${key}: ${e instanceof Error ? e.message : String(e)}`
+      );
       return null;
     }
   }
@@ -72,7 +129,11 @@ export class UsersService {
   private async _setCachedValue<T>(key: string, value: T): Promise<void> {
     try {
       await this._cacheManager.set(key, value);
-    } catch {
+      this._logger.debug(`Cache ${key} was set`);
+    } catch (e) {
+      this._logger.warn(
+        `Cache error setting ${key}: ${e instanceof Error ? e.message : String(e)}`
+      );
       return;
     }
   }
@@ -80,7 +141,11 @@ export class UsersService {
   private async _deleteCachedValue(key: string): Promise<void> {
     try {
       await this._cacheManager.del(key);
-    } catch {
+      this._logger.debug(`Cache ${key} was deleted`);
+    } catch (e) {
+      this._logger.warn(
+        `Cache error deleting ${key}: ${e instanceof Error ? e.message : String(e)}`
+      );
       return;
     }
   }
@@ -100,7 +165,11 @@ export class UsersService {
       if (keys.length) {
         await this._cacheManager.mdel(keys);
       }
-    } catch {
+      this._logger.debug(`Deleted AllProfilesCache: ${keys.length}`);
+    } catch (e) {
+      this._logger.warn(
+        `Cache error deleteAllProfilesCache: ${e instanceof Error ? e.message : String(e)}`
+      );
       return;
     } finally {
       await this._deleteCachedValue(PROFILE_ALL_CACHE_INDEX_KEY);
@@ -144,6 +213,11 @@ export class UsersService {
         this._restoreProfileResponse(profile)
       ),
     };
+  }
+
+  async deleteContentProfileCache(userId: UUID): Promise<void> {
+    await this._deleteProfileCache(userId);
+    await this._deleteMostActiveUsersCache();
   }
 
   async create(
@@ -284,6 +358,14 @@ export class UsersService {
   ): Promise<ProfilesResponseDto> {
     const [from, to] = ages;
 
+    const cacheKey = this._getMostActiveUsersCacheKey(from, to);
+    const cachedProfiles =
+      await this._getCachedValue<ProfilesResponseDto>(cacheKey);
+
+    if (cachedProfiles) {
+      return this._restoreProfilesResponse(cachedProfiles);
+    }
+
     const repo = this._getRepo(manager);
 
     const result = await repo.find({
@@ -300,7 +382,57 @@ export class UsersService {
       },
     });
 
-    return new ProfilesResponseDto(result, result.length, 1, result.length, 1);
+    const profiles = new ProfilesResponseDto(
+      result,
+      result.length,
+      1,
+      result.length,
+      1
+    );
+
+    await this._setCachedValue(cacheKey, profiles);
+    await this._registerMostActiveUsersCacheKey(cacheKey);
+
+    return profiles;
+  }
+
+  @Transactional({ isolationLevel: IsolationLevel.READ_COMMITTED })
+  async addMoney(
+    userId: UUID,
+    data: AddMoneyRequestDto
+  ): Promise<ProfileResponseDto> {
+    const user = await this._usersRepo
+      .createQueryBuilder('user')
+      .setLock('pessimistic_write')
+      .where('user.userId = :userId', { userId })
+      .getOne();
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const amount = this._moneyStrToNum(data.amount);
+
+    if (amount < 1) {
+      throw new ConflictException('Amount must be greater than 0');
+    }
+
+    const userBalance = this._moneyStrToNum(user.balance);
+    const newBalance = userBalance + amount;
+
+    if (newBalance > MAX_BALANCE) {
+      throw new ConflictException('Balance limit exceeded');
+    }
+
+    const newBalanceStr = this._moneyNumToStr(newBalance);
+    user.balance = newBalanceStr;
+
+    await this._usersRepo.save(user);
+    runOnTransactionCommit(() => {
+      void this._deleteProfileCache(userId);
+    });
+
+    return new ProfileResponseDto(user, { includeBalance: true });
   }
 
   @Transactional({ isolationLevel: IsolationLevel.READ_COMMITTED })
@@ -343,8 +475,11 @@ export class UsersService {
     recipient.balance = newRecipientBalance;
 
     await this._usersRepo.save([sender, recipient]);
-    await this._deleteProfileCache(senderId);
-    await this._deleteProfileCache(data.recipientId);
+
+    runOnTransactionCommit(() => {
+      void this._deleteProfileCache(senderId);
+      void this._deleteProfileCache(data.recipientId);
+    });
 
     return new ProfileResponseDto(sender, { includeBalance: true });
   }
@@ -359,7 +494,9 @@ export class UsersService {
       .andWhere('balance <> :balance', { balance: BALANCE_DEFAULT })
       .execute();
 
-    await this._deleteAllProfilesCache();
+    runOnTransactionCommit(() => {
+      void this._deleteAllProfilesCache();
+    });
   }
 
   async updateUser(
@@ -377,6 +514,7 @@ export class UsersService {
     const savedUser = await repo.save(updatedUser);
 
     await this._deleteProfileCache(userId);
+    await this._deleteMostActiveUsersCache();
 
     return new ProfileResponseDto(savedUser, { includeBalance: true });
   }
@@ -394,7 +532,12 @@ export class UsersService {
     }
 
     await this._deleteProfileCache(userId);
+    await this._deleteMostActiveUsersCache();
 
     return await this._authSvc.signout(userId);
+  }
+
+  async deleteMostActiveUsersCache(): Promise<void> {
+    await this._deleteMostActiveUsersCache();
   }
 }

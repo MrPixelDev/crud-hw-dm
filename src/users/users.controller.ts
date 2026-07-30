@@ -20,6 +20,7 @@ import { AccessTokenGuard } from 'src/auth/guards/access-token.guard';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import type { UUID } from 'crypto';
 import {
+  AddMoneyRequestDto,
   AllProfileRequestDto,
   GetAgesRangeDto,
   ProfileResponseDto,
@@ -80,6 +81,24 @@ export class ProfileController {
       throw new BadRequestException('from must be <= to');
     }
     return this._usersSvc.getMostActiveUsers([req.from, req.to]);
+  }
+
+  @ApiOperation({
+    summary: 'Внести деньги пользователю.',
+    description: 'Внести указанную сумму на баланс пользователя.',
+  })
+  @ApiOkResponse({
+    description:
+      'Деньги успешно зачислены. Возвращается профиль текущего пользователя с обновленным балансом.',
+    type: ProfileResponseDto,
+  })
+  @UseGuards(AccessTokenGuard)
+  @Post('addmoney')
+  addBalance(
+    @CurrentUser('sub') userId: UUID,
+    @Body() data: AddMoneyRequestDto
+  ) {
+    return this._usersSvc.addMoney(userId, data);
   }
 
   @ApiOperation({

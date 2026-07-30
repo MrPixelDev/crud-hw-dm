@@ -7,9 +7,15 @@ import { ContentEntity } from './entities/contents.entities';
 import { JwtModule } from '@nestjs/jwt';
 import { AvatarFileWorkerService } from 'src/common/workers/avatar-file-worker.service';
 import { AvatarFileValidationPipe } from 'src/common/pipes/avatar-file-validation.pipe';
+import { UsersModule } from 'src/users/users.module';
 
 @Module({
-  imports: [FilesModule, JwtModule, TypeOrmModule.forFeature([ContentEntity])],
+  imports: [
+    UsersModule,
+    FilesModule,
+    JwtModule,
+    TypeOrmModule.forFeature([ContentEntity]),
+  ],
   providers: [
     ContentsService,
     AvatarFileWorkerService,
