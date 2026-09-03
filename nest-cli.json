@@ -1,8 +1,41 @@
 {
   "$schema": "https://json.schemastore.org/nest-cli",
   "collection": "@nestjs/schematics",
-  "sourceRoot": "src",
+  "sourceRoot": "apps/crud-hw-dm/src",
   "compilerOptions": {
-    "deleteOutDir": true
+    "deleteOutDir": true,
+    "webpack": true,
+    "tsConfigPath": "apps/crud-hw-dm/tsconfig.app.json"
+  },
+  "monorepo": true,
+  "root": "apps/crud-hw-dm",
+  "projects": {
+    "crud-hw-dm": {
+      "type": "application",
+      "root": "apps/crud-hw-dm",
+      "entryFile": "main",
+      "sourceRoot": "apps/crud-hw-dm/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/crud-hw-dm/tsconfig.app.json"
+      }
+    },
+    "helpers": {
+      "type": "library",
+      "root": "libs/helpers",
+      "entryFile": "index",
+      "sourceRoot": "libs/helpers/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/helpers/tsconfig.lib.json"
+      }
+    },
+    "notification-service": {
+      "type": "application",
+      "root": "apps/notification-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/notification-service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/notification-service/tsconfig.app.json"
+      }
+    }
   }
 }

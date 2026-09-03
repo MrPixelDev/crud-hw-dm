@@ -7,11 +7,11 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
-    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "format": "prettier --write \"apps/**/*.ts\" \"libs/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main",
+    "start:prod": "node dist/apps/crud-hw-dm/main",
     "typeorm": "npm run build && npx typeorm-ts-node-commonjs",
     "migration:generate": "npm run typeorm -- migration:generate -d ./src/databases/data-source.ts",
     "migration:run": "npm run typeorm -- migration:run -d ./src/databases/data-source.ts",
@@ -21,7 +21,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:e2e": "jest --config ./apps/crud-hw-dm/test/jest-e2e.json",
     "prepare": "husky",
     "pre-commit": "lint-staged"
   },
@@ -96,15 +96,17 @@
     ],
     "rootDir": ".",
     "roots": [
-      "<rootDir>/src",
-      "<rootDir>/test"
+      "<rootDir>/apps/",
+      "<rootDir>/libs/"
     ],
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "moduleNameMapper": {
-      "^src/(.*)$": "<rootDir>/src/$1"
+      "^@hwdm/helpers(|/.*)$": "<rootDir>/libs/helpers/src/$1",
+      "^@crud-hw-dm/(.*)$": "<rootDir>/apps/crud-hw-dm/src/$1",
+      "^@notification-service/(.*)$": "<rootDir>/apps/notification-service/src/$1"
     },
     "testPathIgnorePatterns": [
       "<rootDir>/node_modules/",

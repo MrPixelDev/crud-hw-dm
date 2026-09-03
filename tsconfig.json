@@ -15,7 +15,10 @@
     "outDir": "./dist",
     "baseUrl": "./",
     "paths": {
-      "src/*": ["src/*"]
+      "@hwdm/helpers": ["libs/helpers/src"],
+      "@hwdm/helpers/*": ["libs/helpers/src/*"],
+      "@crud-hw-dm/*": ["apps/crud-hw-dm/src/*"],
+      "@notification-service/*": ["apps/notification-service/src/*"]
     },
     "incremental": true,
     "skipLibCheck": true,
@@ -25,5 +28,9 @@
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false
   },
-  "include": ["./src/**/*", "./test/**/*"]
+  "include": [
+    "./libs/helpers/src/**/*",
+    "./apps/**/src/**/*",
+    "./apps/**/test/**/*"
+  ]
 }
