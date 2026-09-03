@@ -23,7 +23,6 @@ import type { UUID } from 'crypto';
 import { defaultGetUsersParams } from '@crud-hw-dm/common/interfaces/user.interface';
 import type { IGetUsersParams } from '@crud-hw-dm/common/interfaces/user.interface';
 import { AuthService } from '@crud-hw-dm/auth/auth.service';
-import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
 import {
   PROFILE_ALL_CACHE_INDEX_KEY,
   PROFILE_ALL_CACHE_PREFIX,
@@ -40,6 +39,7 @@ import {
   runOnTransactionCommit,
   Transactional,
 } from 'typeorm-transactional';
+import { Caching } from '@hwdm/helpers';
 
 @Injectable()
 export class UsersService {
@@ -50,8 +50,7 @@ export class UsersService {
     private readonly _usersRepo: Repository<UserEntity>,
     @Inject(forwardRef(() => AuthService))
     private readonly _authSvc: AuthService,
-    @Inject(CACHE_MANAGER)
-    private readonly _cacheManager: Cache
+    private readonly _cacheManager: Caching
   ) {}
 
   private _getRepo(manager?: EntityManager): Repository<UserEntity> {
@@ -77,19 +76,19 @@ export class UsersService {
 
   private async _registerMostActiveUsersCacheKey(key: string): Promise<void> {
     const keys =
-      (await this._getCachedValue<string[]>(
+      (await this._cacheManager.getCachedValue<string[]>(
         PROFILE_MOST_ACTIVE_CACHE_INDEX_KEY
       )) ?? [];
 
-    await this._setCachedValue(PROFILE_MOST_ACTIVE_CACHE_INDEX_KEY, [
-      ...keys,
-      key,
-    ]);
+    await this._cacheManager.setCachedValue(
+      PROFILE_MOST_ACTIVE_CACHE_INDEX_KEY,
+      [...keys, key]
+    );
   }
 
   private async _deleteMostActiveUsersCache(): Promise<void> {
     const keys =
-      (await this._getCachedValue<string[]>(
+      (await this._cacheManager.getCachedValue<string[]>(
         PROFILE_MOST_ACTIVE_CACHE_INDEX_KEY
       )) ?? [];
 
@@ -103,63 +102,29 @@ export class UsersService {
       );
       return;
     } finally {
-      await this._deleteCachedValue(PROFILE_MOST_ACTIVE_CACHE_INDEX_KEY);
-    }
-  }
-
-  private async _getCachedValue<T>(key: string): Promise<T | null> {
-    try {
-      const value = await this._cacheManager.get<T>(key);
-
-      if (value) {
-        this._logger.debug(`Cached ${key} value found`);
-      } else {
-        this._logger.debug(`Cached ${key} value not found`);
-      }
-
-      return value ?? null;
-    } catch (e) {
-      this._logger.warn(
-        `Cache error getting ${key}: ${e instanceof Error ? e.message : String(e)}`
+      await this._cacheManager.deleteCachedValue(
+        PROFILE_MOST_ACTIVE_CACHE_INDEX_KEY
       );
-      return null;
-    }
-  }
-
-  private async _setCachedValue<T>(key: string, value: T): Promise<void> {
-    try {
-      await this._cacheManager.set(key, value);
-      this._logger.debug(`Cache ${key} was set`);
-    } catch (e) {
-      this._logger.warn(
-        `Cache error setting ${key}: ${e instanceof Error ? e.message : String(e)}`
-      );
-      return;
-    }
-  }
-
-  private async _deleteCachedValue(key: string): Promise<void> {
-    try {
-      await this._cacheManager.del(key);
-      this._logger.debug(`Cache ${key} was deleted`);
-    } catch (e) {
-      this._logger.warn(
-        `Cache error deleting ${key}: ${e instanceof Error ? e.message : String(e)}`
-      );
-      return;
     }
   }
 
   private async _registerAllProfilesCacheKey(key: string): Promise<void> {
     const keys =
-      (await this._getCachedValue<string[]>(PROFILE_ALL_CACHE_INDEX_KEY)) ?? [];
+      (await this._cacheManager.getCachedValue<string[]>(
+        PROFILE_ALL_CACHE_INDEX_KEY
+      )) ?? [];
 
-    await this._setCachedValue(PROFILE_ALL_CACHE_INDEX_KEY, [...keys, key]);
+    await this._cacheManager.setCachedValue(PROFILE_ALL_CACHE_INDEX_KEY, [
+      ...keys,
+      key,
+    ]);
   }
 
   private async _deleteAllProfilesCache(): Promise<void> {
     const keys =
-      (await this._getCachedValue<string[]>(PROFILE_ALL_CACHE_INDEX_KEY)) ?? [];
+      (await this._cacheManager.getCachedValue<string[]>(
+        PROFILE_ALL_CACHE_INDEX_KEY
+      )) ?? [];
 
     try {
       if (keys.length) {
@@ -172,12 +137,14 @@ export class UsersService {
       );
       return;
     } finally {
-      await this._deleteCachedValue(PROFILE_ALL_CACHE_INDEX_KEY);
+      await this._cacheManager.deleteCachedValue(PROFILE_ALL_CACHE_INDEX_KEY);
     }
   }
 
   private async _deleteProfileCache(userId: UUID): Promise<void> {
-    await this._deleteCachedValue(this._getOwnProfileCacheKey(userId));
+    await this._cacheManager.deleteCachedValue(
+      this._getOwnProfileCacheKey(userId)
+    );
     await this._deleteAllProfilesCache();
   }
 
@@ -301,7 +268,7 @@ export class UsersService {
   async getOwnProfile(userId: UUID): Promise<ProfileResponseDto> {
     const cacheKey = this._getOwnProfileCacheKey(userId);
     const cachedProfile =
-      await this._getCachedValue<ProfileResponseDto>(cacheKey);
+      await this._cacheManager.getCachedValue<ProfileResponseDto>(cacheKey);
 
     if (cachedProfile) {
       return this._restoreProfileResponse(cachedProfile);
@@ -315,7 +282,7 @@ export class UsersService {
 
     const profile = new ProfileResponseDto(user, { includeBalance: true });
 
-    await this._setCachedValue(cacheKey, profile);
+    await this._cacheManager.setCachedValue(cacheKey, profile);
 
     return profile;
   }
@@ -325,7 +292,7 @@ export class UsersService {
   ): Promise<ProfilesResponseDto> {
     const cacheKey = this._getAllProfilesCacheKey(data);
     const cachedProfiles =
-      await this._getCachedValue<ProfilesResponseDto>(cacheKey);
+      await this._cacheManager.getCachedValue<ProfilesResponseDto>(cacheKey);
 
     if (cachedProfiles) {
       return this._restoreProfilesResponse(cachedProfiles);
@@ -346,7 +313,7 @@ export class UsersService {
       totalPages
     );
 
-    await this._setCachedValue(cacheKey, profiles);
+    await this._cacheManager.setCachedValue(cacheKey, profiles);
     await this._registerAllProfilesCacheKey(cacheKey);
 
     return profiles;
@@ -360,7 +327,7 @@ export class UsersService {
 
     const cacheKey = this._getMostActiveUsersCacheKey(from, to);
     const cachedProfiles =
-      await this._getCachedValue<ProfilesResponseDto>(cacheKey);
+      await this._cacheManager.getCachedValue<ProfilesResponseDto>(cacheKey);
 
     if (cachedProfiles) {
       return this._restoreProfilesResponse(cachedProfiles);
@@ -390,7 +357,7 @@ export class UsersService {
       1
     );
 
-    await this._setCachedValue(cacheKey, profiles);
+    await this._cacheManager.setCachedValue(cacheKey, profiles);
     await this._registerMostActiveUsersCacheKey(cacheKey);
 
     return profiles;

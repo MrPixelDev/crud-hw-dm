@@ -57,6 +57,7 @@ import { HelpersModule } from '@hwdm/helpers';
     ContentsModule,
     CacheModule,
     BalanceResetModule,
+    HelpersModule,
   ],
   controllers: [],
   providers: [],

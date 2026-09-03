@@ -5,12 +5,14 @@ import { UsersService } from './users.service';
 import { ProfileController } from './users.controller';
 import { AuthModule } from '@crud-hw-dm/auth/auth.module';
 import { JwtModule } from '@nestjs/jwt';
+import { HelpersModule } from '@hwdm/helpers';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([UserEntity]),
     JwtModule,
     forwardRef(() => AuthModule),
+    HelpersModule,
   ],
   controllers: [ProfileController],
   providers: [UsersService],

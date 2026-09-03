@@ -3,10 +3,10 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { AuthService } from '@crud-hw-dm/auth/auth.service';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { PROFILE_ALL_CACHE_INDEX_KEY } from '@crud-hw-dm/common/consts/cache.constants';
 import { UserEntity } from '@crud-hw-dm/users/entities/user.entity';
 import { UsersService } from '@crud-hw-dm/users/users.service';
+import { Caching } from '@hwdm/helpers';
 
 describe('UsersService', () => {
   const userId = crypto.randomUUID();
@@ -52,7 +52,7 @@ describe('UsersService', () => {
           useValue: authServiceMock,
         },
         {
-          provide: CACHE_MANAGER,
+          provide: Caching,
           useValue: cacheManagerMock,
         },
       ],
