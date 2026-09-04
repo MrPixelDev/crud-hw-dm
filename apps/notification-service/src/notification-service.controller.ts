@@ -1,14 +1,14 @@
-import { Controller, Get } from '@nestjs/common';
-import { NotificationServiceService } from './notification-service.service';
+import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { NotificationGateway } from './notification/notification.gateway';
+import { AccessTokenGuard } from '@crud-hw-dm/auth/guards/access-token.guard';
 
 @Controller()
 export class NotificationServiceController {
-  constructor(
-    private readonly notificationServiceService: NotificationServiceService
-  ) {}
+  constructor(private readonly _notificationGateway: NotificationGateway) {}
 
-  @Get()
-  getHello(): string {
-    return this.notificationServiceService.getHello();
+  @UseGuards(AccessTokenGuard)
+  @Post('notification')
+  sendNotification(@Body('login') login: string): void {
+    return this._notificationGateway.sendNotification(login);
   }
 }

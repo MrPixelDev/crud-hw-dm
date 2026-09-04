@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -35,7 +36,7 @@ import { HelpersService } from '@hwdm/helpers';
 export class AuthService {
   private static readonly _PG_UQ_VIOLATION = '23505';
   constructor(
-    private readonly _jwtSvc: JwtService,
+    @Inject(JwtService) private readonly _jwtService: JwtService,
     private readonly _configSvc: ConfigService,
     private readonly _dataSrc: DataSource,
     @InjectRepository(SessionEntity)
@@ -51,7 +52,7 @@ export class AuthService {
     payload: IAccessTokenPayload | IRefreshTokenPayload,
     options: JwtSignOptions
   ): Promise<string> {
-    return await this._jwtSvc.signAsync(payload, options);
+    return await this._jwtService.signAsync(payload, options);
   }
 
   private async _issueTokenPair(
@@ -147,7 +148,7 @@ export class AuthService {
     refreshToken: string
   ): Promise<IRefreshTokenPayload> {
     try {
-      const payload = await this._jwtSvc.verifyAsync<IRefreshTokenPayload>(
+      const payload = await this._jwtService.verifyAsync<IRefreshTokenPayload>(
         refreshToken,
         {
           secret: this._configSvc.get<string>('JWT_REFRESH_SECRET'),

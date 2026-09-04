@@ -1,20 +1,23 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
-import { ConfigModule, ConfigType } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { UsersModule } from '@crud-hw-dm/users/users.module';
 import { BalanceResetController } from './balance-reset.controller';
 import { BalanceResetService } from './balance-reset.service';
 import { BALANCE_RESET_QUEUE } from '@crud-hw-dm/common/consts/balance-reset.constants';
 import { BalanceResetJob } from './balance-reset.job';
-import cacheConfig from '@crud-hw-dm/cache/cache.config';
+import { CacheModule } from '@hwdm/caching';
+import { ConfigModule, ConfigType } from '@nestjs/config';
+import { cachingConfig } from './caching.config';
 
 @Module({
   imports: [
+    CacheModule,
+    ConfigModule.forFeature(cachingConfig),
     BullModule.forRootAsync({
-      imports: [ConfigModule.forFeature(cacheConfig)],
-      inject: [cacheConfig.KEY],
-      useFactory: (cacheCfg: ConfigType<typeof cacheConfig>) => {
+      imports: [ConfigModule.forFeature(cachingConfig)],
+      inject: [cachingConfig.KEY],
+      useFactory: (cacheCfg: ConfigType<typeof cachingConfig>) => {
         return {
           redis: {
             host: cacheCfg.host,

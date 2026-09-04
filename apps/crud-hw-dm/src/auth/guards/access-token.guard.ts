@@ -1,21 +1,22 @@
 import {
   CanActivate,
   ExecutionContext,
+  Inject,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
 import { Observable } from 'rxjs';
 import {
   IAccessTokenPayload,
   RequestWithUser,
 } from '@crud-hw-dm/common/interfaces/auth.interface';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class AccessTokenGuard implements CanActivate {
   constructor(
-    private readonly _jwtSvc: JwtService,
+    @Inject(JwtService) private readonly _jwtService: JwtService,
     private readonly _configSvc: ConfigService
   ) {}
 
@@ -44,7 +45,7 @@ export class AccessTokenGuard implements CanActivate {
       throw new UnauthorizedException();
     }
 
-    return this._jwtSvc
+    return this._jwtService
       .verifyAsync<IAccessTokenPayload>(token, {
         secret: this._getRequiredEnv('JWT_ACCESS_SECRET'),
       })

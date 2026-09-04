@@ -1,18 +1,20 @@
 import { CacheModule as NestCacheModule } from '@nestjs/cache-manager';
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { ConfigModule, ConfigType } from '@nestjs/config';
 import KeyvRedis from '@keyv/redis';
 import { Keyv } from 'keyv';
 import { CACHE_TTL } from '@crud-hw-dm/common/consts/cache.constants';
-import cacheConfig from './cache.config';
+import { cachingConfig } from './caching.config';
+import { Caching } from './caching.service';
 
+@Global()
 @Module({
   imports: [
     NestCacheModule.registerAsync({
       isGlobal: true,
-      imports: [ConfigModule.forFeature(cacheConfig)],
-      inject: [cacheConfig.KEY],
-      useFactory: (cacheCfg: ConfigType<typeof cacheConfig>) => {
+      imports: [ConfigModule.forFeature(cachingConfig)],
+      inject: [cachingConfig.KEY],
+      useFactory: (cacheCfg: ConfigType<typeof cachingConfig>) => {
         return {
           stores: [
             new Keyv({
@@ -26,6 +28,7 @@ import cacheConfig from './cache.config';
       },
     }),
   ],
-  exports: [NestCacheModule],
+  providers: [Caching],
+  exports: [NestCacheModule, Caching],
 })
 export class CacheModule {}

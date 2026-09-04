@@ -39,7 +39,7 @@ import {
   runOnTransactionCommit,
   Transactional,
 } from 'typeorm-transactional';
-import { Caching } from '@hwdm/helpers';
+import { Caching } from '@hwdm/caching';
 
 @Injectable()
 export class UsersService {

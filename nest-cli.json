@@ -10,6 +10,24 @@
   "monorepo": true,
   "root": "apps/crud-hw-dm",
   "projects": {
+    "caching": {
+      "type": "library",
+      "root": "libs/caching",
+      "entryFile": "index",
+      "sourceRoot": "libs/caching/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/caching/tsconfig.lib.json"
+      }
+    },
+    "config": {
+      "type": "library",
+      "root": "libs/config",
+      "entryFile": "index",
+      "sourceRoot": "libs/config/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/config/tsconfig.lib.json"
+      }
+    },
     "crud-hw-dm": {
       "type": "application",
       "root": "apps/crud-hw-dm",

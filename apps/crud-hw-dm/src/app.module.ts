@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
@@ -7,20 +6,21 @@ import { DataSource } from 'typeorm';
 import { ContentsModule } from './contents/contents.module';
 import { FilesModule } from './providers/files.module';
 import { S3Module } from './providers/s3/s3.module';
-import { CacheModule } from './cache/cache.module';
 import {
   addTransactionalDataSource,
   deleteDataSourceByName,
 } from 'typeorm-transactional';
 import { BalanceResetModule } from './balance-reset/balance-reset.module';
 import { HelpersModule } from '@hwdm/helpers';
+import { Config } from '@hwdm/config';
+import { ConfigService } from '@nestjs/config';
+import { CacheModule } from '@hwdm/caching';
 
 @Module({
   imports: [
+    Config,
     HelpersModule,
-    ConfigModule.forRoot({
-      isGlobal: true,
-    }),
+    CacheModule,
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configSvc: ConfigService): TypeOrmModuleOptions => ({
@@ -55,9 +55,7 @@ import { HelpersModule } from '@hwdm/helpers';
     FilesModule,
     S3Module,
     ContentsModule,
-    CacheModule,
     BalanceResetModule,
-    HelpersModule,
   ],
   controllers: [],
   providers: [],

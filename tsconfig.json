@@ -15,9 +15,13 @@
     "outDir": "./dist",
     "baseUrl": "./",
     "paths": {
+      "@hwdm/caching": ["libs/caching/src"],
+      "@hwdm/caching/*": ["libs/caching/src/*"],
+      "@hwdm/config": ["libs/config/src"],
+      "@hwdm/config/*": ["libs/config/src/*"],
+      "@crud-hw-dm/*": ["apps/crud-hw-dm/src/*"],
       "@hwdm/helpers": ["libs/helpers/src"],
       "@hwdm/helpers/*": ["libs/helpers/src/*"],
-      "@crud-hw-dm/*": ["apps/crud-hw-dm/src/*"],
       "@notification-service/*": ["apps/notification-service/src/*"]
     },
     "incremental": true,
@@ -31,6 +35,9 @@
   "include": [
     "./libs/helpers/src/**/*",
     "./apps/**/src/**/*",
-    "./apps/**/test/**/*"
+    "./apps/**/test/**/*",
+    "./libs/caching/src/**/*",
+    "./libs/config/src/**/*",
+    "socket-test.js"
   ]
 }

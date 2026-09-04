@@ -106,8 +106,10 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "moduleNameMapper": {
-      "^@hwdm/helpers(|/.*)$": "<rootDir>/libs/helpers/src/$1",
+      "^@hwdm/caching(|/.*)$": "<rootDir>/libs/caching/src/$1",
+      "^@hwdm/config(|/.*)$": "<rootDir>/libs/config/src/$1",
       "^@crud-hw-dm/(.*)$": "<rootDir>/apps/crud-hw-dm/src/$1",
+      "^@hwdm/helpers(|/.*)$": "<rootDir>/libs/helpers/src/$1",
       "^@notification-service/(.*)$": "<rootDir>/apps/notification-service/src/$1"
     },
     "testPathIgnorePatterns": [

@@ -1,28 +1,30 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import { Caching } from '@hwdm/helpers';
-import { Logger } from '@nestjs/common';
+import { IAccessTokenPayload } from '@crud-hw-dm/common/interfaces/auth.interface';
+import { Inject, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
-  MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
   OnGatewayInit,
-  SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { JwtService } from '@nestjs/jwt';
 
-enum WS_MESSAGES {
-  testmessage = 'testmessage',
-}
+const WS_MESSAGES = {
+  notification: 'notification',
+};
 
-@WebSocketGateway(80, { namespace: 'messages' })
+@WebSocketGateway(8082, { namespace: 'messages' })
 export class NotificationGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
   private readonly _logger = new Logger(NotificationGateway.name);
-
-  constructor(private readonly _cacheManager: Caching) {}
+  constructor(
+    private readonly _configSvc: ConfigService,
+    @Inject(JwtService) private readonly _jwtService: JwtService
+  ) {}
 
   @WebSocketServer()
   io: Server;
@@ -34,18 +36,43 @@ export class NotificationGateway
   }
 
   handleConnection(client: Socket) {
-    const { sockets } = this.io.sockets;
+    const token = client.handshake.headers.authorization;
+    this._logger.log(
+      `token: ${token}\n\nJWT SECRET: ${this._configSvc.get<string>('JWT_ACCESS_SECRET')}`
+    );
+    if (!token) {
+      this._logger.warn('No authorization header presented.');
+      client.disconnect();
+      return;
+    }
+
+    try {
+      const jwt = this._jwtService.verify<IAccessTokenPayload>(
+        token.replace('Bearer ', ''),
+        {
+          secret: this._configSvc.get<string>('JWT_ACCESS_SECRET'),
+        }
+      );
+      console.log(jwt.login);
+      void client.join(jwt.login);
+      console.log(client.rooms);
+    } catch (e: any) {
+      console.log(e);
+      client.disconnect();
+      return;
+    }
 
     this._logger.log(`Client id: ${client.id} connected`);
-    this._logger.debug(`Number of connected clients: ${sockets.size}`);
   }
 
   handleDisconnect(client: Socket) {
     this._logger.log(`Cliend id:${client.id} disconnected`);
   }
 
-  @SubscribeMessage(WS_MESSAGES.testmessage)
-  handleMessage(@MessageBody('id') data: string): string {
-    return data;
+  sendNotification(login: string) {
+    console.log(login);
+    this.io.to(login).emit(WS_MESSAGES.notification, {
+      data: 'Notif!',
+    });
   }
 }

@@ -1,12 +1,11 @@
-import { Module } from '@nestjs/common';
-import {
-  Caching,
-  HelpersService,
-  HttpExceptionFilter,
-} from './helpers.service';
+import { Global, Module } from '@nestjs/common';
+import { HelpersService, HttpExceptionFilter } from './helpers.service';
+import { JwtModule } from '@nestjs/jwt';
 
+@Global()
 @Module({
-  providers: [HelpersService, Caching, HttpExceptionFilter],
-  exports: [HelpersService, Caching, HttpExceptionFilter],
+  imports: [JwtModule.register({})],
+  providers: [HelpersService, HttpExceptionFilter],
+  exports: [HelpersService, HttpExceptionFilter, JwtModule],
 })
 export class HelpersModule {}
