@@ -1,11 +1,10 @@
-import type { UUID } from 'crypto';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { ProfileController } from 'src/users/users.controller';
 import type { UsersService } from 'src/users/users.service';
 import { AllProfileRequestDto, UpdateUserDto } from 'src/users/dto/profile.dto';
 
 describe('ProfileController', () => {
-  const userId = '11111111-1111-1111-1111-111111111111' as UUID;
+  const userId = crypto.randomUUID();
 
   const usersServiceMock = {
     getOwnProfile: jest.fn<UsersService['getOwnProfile']>(),

@@ -20,7 +20,7 @@ import { setupSwagger } from 'src/common/swagger/swagger.config';
 import { ProfileController } from 'src/users/users.controller';
 import { UsersService } from 'src/users/users.service';
 
-const testUserId = '11111111-1111-1111-1111-111111111111' as UUID;
+const testUserId = crypto.randomUUID();
 
 class TestAccessTokenGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {

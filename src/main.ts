@@ -6,12 +6,26 @@ import {
 } from '@nestjs/platform-fastify';
 import { ValidationPipe } from '@nestjs/common';
 import { setupSwagger } from './common/swagger/swagger.config';
+import fastifyMultipart from '@fastify/multipart';
+import { MAX_AVATAR_FILE_SIZE_BYTES } from './common/consts/contents.consts';
+import {
+  initializeTransactionalContext,
+  StorageDriver,
+} from 'typeorm-transactional';
 
 async function bootstrap() {
+  initializeTransactionalContext({ storageDriver: StorageDriver.AUTO });
+
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter()
   );
+
+  await app.register(fastifyMultipart, {
+    limits: {
+      fileSize: MAX_AVATAR_FILE_SIZE_BYTES,
+    },
+  });
 
   app.useGlobalPipes(
     new ValidationPipe({

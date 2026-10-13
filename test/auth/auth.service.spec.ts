@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import type { UUID } from 'crypto';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { DataSource, EntityManager } from 'typeorm';
 import { AuthService } from 'src/auth/auth.service';
@@ -17,7 +16,7 @@ import { UsersService } from 'src/users/users.service';
 import { UserEntity } from 'src/users/entities/user.entity';
 
 describe('AuthService', () => {
-  const userId = '11111111-1111-1111-1111-111111111111' as UUID;
+  const userId = crypto.randomUUID();
 
   type AuthServiceInternals = {
     _verifyRefreshToken(refreshToken: string): Promise<IRefreshTokenPayload>;
@@ -109,35 +108,27 @@ describe('AuthService', () => {
   });
 
   it('revokes all active sessions on signout', async () => {
-    const activeSessionA = Object.assign(new SessionEntity(), {
-      userId,
-      revokedAt: null,
-      save: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-    });
-    const activeSessionB = Object.assign(new SessionEntity(), {
-      userId,
-      revokedAt: null,
-      save: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-    });
     const queryBuilderMock = {
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
-      getMany: jest
-        .fn<() => Promise<SessionEntity[]>>()
-        .mockResolvedValue([activeSessionA, activeSessionB]),
+      execute: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
     };
 
     sessionRepoMock.createQueryBuilder.mockReturnValue(queryBuilderMock);
 
     await expect(service.signout(userId)).resolves.toBeUndefined();
 
+    expect(sessionRepoMock.createQueryBuilder).toHaveBeenCalledWith();
+    expect(queryBuilderMock.update).toHaveBeenCalledTimes(1);
+    expect(queryBuilderMock.set).toHaveBeenCalledWith({
+      revokedAt: expect.any(Date),
+    });
     expect(queryBuilderMock.where).toHaveBeenCalledWith(
       'user_id = :userId AND revoked_at IS NULL',
       { userId }
     );
-    expect(activeSessionA.revokedAt).toBeInstanceOf(Date);
-    expect(activeSessionB.revokedAt).toBeInstanceOf(Date);
-    expect(activeSessionA.save).toHaveBeenCalledTimes(1);
-    expect(activeSessionB.save).toHaveBeenCalledTimes(1);
+    expect(queryBuilderMock.execute).toHaveBeenCalledTimes(1);
   });
 
   it('refresh rotates the stored refresh token and returns a new pair', async () => {

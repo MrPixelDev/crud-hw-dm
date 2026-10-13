@@ -1,8 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-
-export const SWAGGER_PATH = 'docs';
-export const SWAGGER_BEARER_SCHEME = 'access-token';
+import { SWAGGER_BEARER_SCHEME, SWAGGER_PATH } from '../consts/swagger.consts';
 
 export function createSwaggerConfig() {
   return new DocumentBuilder()

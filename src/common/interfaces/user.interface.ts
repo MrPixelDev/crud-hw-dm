@@ -18,3 +18,7 @@ export const defaultGetUsersParams: IGetUsersParams = {
   page: 1,
   limit: 10,
 };
+
+export interface IProfileResponseOptions {
+  includeBalance?: boolean;
+}

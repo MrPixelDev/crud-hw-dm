@@ -1,4 +1,3 @@
-import type { UUID } from 'crypto';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { AuthController } from 'src/auth/auth.controller';
 import type { AuthService } from 'src/auth/auth.service';
@@ -10,7 +9,7 @@ import {
 } from 'src/auth/dto/auth.dto';
 
 describe('AuthController', () => {
-  const userId = '11111111-1111-1111-1111-111111111111' as UUID;
+  const userId = crypto.randomUUID();
 
   const authServiceMock = {
     signup: jest.fn<AuthService['signup']>(),

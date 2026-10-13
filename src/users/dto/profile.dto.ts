@@ -11,11 +11,18 @@ import {
   Min,
   ValidateNested,
   Validate,
+  ValidateIf,
+  IsUUID,
+  Matches,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { AtLeastOneField } from 'src/common/utilities/validators.utility';
 import { SignupDto } from 'src/auth/dto/auth.dto';
-import { UserFilter } from 'src/common/interfaces/user.interface';
+import {
+  IProfileResponseOptions,
+  UserFilter,
+} from 'src/common/interfaces/user.interface';
+import { BALANCE_AMOUNT_PATTERN } from 'src/common/consts/balance.constants';
 
 export class ProfileResponseDto {
   @ApiProperty({
@@ -44,6 +51,22 @@ export class ProfileResponseDto {
   description!: string;
 
   @ApiProperty({
+    description: 'Аватар пользователя',
+  })
+  avatar!: string | null;
+
+  @ApiProperty({
+    description: 'Количество аватарок пользователя',
+  })
+  activeAvatarCount!: number;
+
+  @ApiPropertyOptional({
+    description: 'Баланс пользователя',
+    example: '20.51',
+  })
+  balance?: string;
+
+  @ApiProperty({
     description: 'Дата создания профиля.',
   })
   createdAt!: Date;
@@ -53,12 +76,17 @@ export class ProfileResponseDto {
   })
   updatedAt!: Date;
 
-  constructor(user: UserEntity) {
+  constructor(user: UserEntity, options?: IProfileResponseOptions) {
     this.userId = user.userId;
     this.login = user.login;
     this.email = user.email;
     this.age = user.age;
     this.description = user.description;
+    this.avatar = user.avatar;
+    this.activeAvatarCount = user.activeAvatarCount;
+    if (options && options.includeBalance) {
+      this.balance = user.balance;
+    }
     this.createdAt = user.createdAt;
     this.updatedAt = user.updatedAt;
   }
@@ -113,7 +141,7 @@ export class AllProfileRequestDto {
   filter?: UserFilterDto;
 }
 
-export class AllProfileResponseDto {
+export class ProfilesResponseDto {
   @ApiProperty({
     description: 'Список найденных профилей.',
     type: () => ProfileResponseDto,
@@ -182,4 +210,43 @@ export class UpdateUserDto implements Partial<
 
   @Validate(AtLeastOneField, ['age', 'description'])
   private readonly _atLeastOneFieldCheck?: never;
+}
+
+export class GetAgesRangeDto {
+  @IsInt()
+  @IsNotEmpty()
+  @Min(1)
+  @Max(150)
+  from!: number;
+
+  @IsInt()
+  @IsNotEmpty()
+  @Min(1)
+  @Max(150)
+  to!: number;
+
+  @ValidateIf((req: GetAgesRangeDto) => req.from > req.to)
+  invalidRange?: never;
+}
+
+export class TransferMoneyRequestDto {
+  @IsUUID()
+  @IsNotEmpty()
+  recipientId!: UUID;
+
+  @IsString()
+  @IsNotEmpty()
+  @Matches(BALANCE_AMOUNT_PATTERN, {
+    message: 'Неправильный формат значения amount.',
+  })
+  amount!: string;
+}
+
+export class AddMoneyRequestDto {
+  @IsString()
+  @IsNotEmpty()
+  @Matches(BALANCE_AMOUNT_PATTERN, {
+    message: 'Неправильный формат значения amount.',
+  })
+  amount!: string;
 }
