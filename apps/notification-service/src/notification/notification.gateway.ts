@@ -69,10 +69,9 @@ export class NotificationGateway
     this._logger.log(`Cliend id:${client.id} disconnected`);
   }
 
-  sendNotification(login: string) {
-    console.log(login);
+  sendNotification<T>(login: string, data: T) {
     this.io.to(login).emit(WS_MESSAGES.notification, {
-      data: 'Notif!',
+      data: JSON.stringify(data),
     });
   }
 }

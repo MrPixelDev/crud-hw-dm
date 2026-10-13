@@ -15,12 +15,14 @@ import { HelpersModule } from '@hwdm/helpers';
 import { Config } from '@hwdm/config';
 import { ConfigService } from '@nestjs/config';
 import { CacheModule } from '@hwdm/caching';
+import { KafkaModule } from '@kafka/kafka';
 
 @Module({
   imports: [
     Config,
     HelpersModule,
     CacheModule,
+    KafkaModule,
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configSvc: ConfigService): TypeOrmModuleOptions => ({
@@ -32,8 +34,6 @@ import { CacheModule } from '@hwdm/caching';
         database: configSvc.get<string>('DB_NAME'),
         entities: ['dist/**/*.entity{.ts,.js}', 'dist/**/*.entities{.ts,.js}'],
         migrations: ['@crud-hw-dm/databases/migrations/*{.ts,.js}'],
-        // entities: [path.join(__dirname, '**/*.entity{.ts,.js}')],
-        // migrations: [path.join(__dirname, 'migrations/**/*{.ts,.js}')],
         autoLoadEntities: true,
         synchronize: false,
         logging: true,

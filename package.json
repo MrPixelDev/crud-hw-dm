@@ -37,6 +37,7 @@
     "@nestjs/core": "^12.0.1",
     "@nestjs/jwt": "^12.0.1",
     "@nestjs/mapped-types": "*",
+    "@nestjs/microservices": "^12.0.3",
     "@nestjs/passport": "^12.0.0",
     "@nestjs/platform-express": "^12.0.1",
     "@nestjs/platform-fastify": "^12.0.1",
@@ -49,6 +50,7 @@
     "cache-manager": "^7.2.9",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.4",
+    "kafkajs": "^2.2.4",
     "keyv": "^5.6.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
@@ -106,10 +108,11 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "moduleNameMapper": {
+      "^@crud-hw-dm/(.*)$": "<rootDir>/apps/crud-hw-dm/src/$1",
       "^@hwdm/caching(|/.*)$": "<rootDir>/libs/caching/src/$1",
       "^@hwdm/config(|/.*)$": "<rootDir>/libs/config/src/$1",
-      "^@crud-hw-dm/(.*)$": "<rootDir>/apps/crud-hw-dm/src/$1",
       "^@hwdm/helpers(|/.*)$": "<rootDir>/libs/helpers/src/$1",
+      "^@kafka/kafka(|/.*)$": "<rootDir>/libs/kafka/src/$1",
       "^@notification-service/(.*)$": "<rootDir>/apps/notification-service/src/$1"
     },
     "testPathIgnorePatterns": [

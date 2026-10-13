@@ -40,6 +40,9 @@ import {
   Transactional,
 } from 'typeorm-transactional';
 import { Caching } from '@hwdm/caching';
+import { KafkaService } from '@kafka/kafka';
+import { KAFKA_TOPICS } from '@crud-hw-dm/common/consts/kafka.constants';
+import { BalanceTransferredEvent } from '@crud-hw-dm/common/events/balance-transferred.event';
 
 @Injectable()
 export class UsersService {
@@ -50,7 +53,8 @@ export class UsersService {
     private readonly _usersRepo: Repository<UserEntity>,
     @Inject(forwardRef(() => AuthService))
     private readonly _authSvc: AuthService,
-    private readonly _cacheManager: Caching
+    private readonly _cacheManager: Caching,
+    private readonly _kafka: KafkaService
   ) {}
 
   private _getRepo(manager?: EntityManager): Repository<UserEntity> {
@@ -443,9 +447,30 @@ export class UsersService {
 
     await this._usersRepo.save([sender, recipient]);
 
+    const balanceTransferredEvent = new BalanceTransferredEvent(
+      senderId,
+      data.recipientId,
+      recipient.login,
+      this._moneyNumToStr(amount)
+    );
+
     runOnTransactionCommit(() => {
       void this._deleteProfileCache(senderId);
       void this._deleteProfileCache(data.recipientId);
+
+      void this._kafka
+        .publish(
+          KAFKA_TOPICS.BALANCE_TRANSFERRED,
+
+          senderId,
+          balanceTransferredEvent
+        )
+        .catch((e: unknown) => {
+          this._logger.error(
+            `Перевод выполнен, но публикация события не подтверждена`,
+            e instanceof Error ? e.stack : String(e)
+          );
+        });
     });
 
     return new ProfileResponseDto(sender, { includeBalance: true });
