@@ -37,9 +37,6 @@ export class NotificationGateway
 
   handleConnection(client: Socket) {
     const token = client.handshake.headers.authorization;
-    this._logger.log(
-      `token: ${token}\n\nJWT SECRET: ${this._configSvc.get<string>('JWT_ACCESS_SECRET')}`
-    );
     if (!token) {
       this._logger.warn('No authorization header presented.');
       client.disconnect();
@@ -53,11 +50,9 @@ export class NotificationGateway
           secret: this._configSvc.get<string>('JWT_ACCESS_SECRET'),
         }
       );
-      console.log(jwt.login);
       void client.join(jwt.login);
-      console.log(client.rooms);
     } catch (e: any) {
-      console.log(e);
+      this._logger.error(e);
       client.disconnect();
       return;
     }

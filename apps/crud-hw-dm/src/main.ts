@@ -12,14 +12,20 @@ import {
   initializeTransactionalContext,
   StorageDriver,
 } from 'typeorm-transactional';
+import { LoggingService } from '@hwdm/helpers';
+
+const logger = new LoggingService('crud-hw-dm');
 
 async function bootstrap() {
   initializeTransactionalContext({ storageDriver: StorageDriver.AUTO });
 
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter()
+    new FastifyAdapter(logger.getHttpOptions()),
+    { logger, abortOnError: false }
   );
+
+  logger.configureHttp(app);
 
   await app.register(fastifyMultipart, {
     limits: {
