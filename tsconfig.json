@@ -15,7 +15,16 @@
     "outDir": "./dist",
     "baseUrl": "./",
     "paths": {
-      "src/*": ["src/*"]
+      "@crud-hw-dm/*": ["apps/crud-hw-dm/src/*"],
+      "@hwdm/caching": ["libs/caching/src"],
+      "@hwdm/caching/*": ["libs/caching/src/*"],
+      "@hwdm/config": ["libs/config/src"],
+      "@hwdm/config/*": ["libs/config/src/*"],
+      "@hwdm/helpers": ["libs/helpers/src"],
+      "@hwdm/helpers/*": ["libs/helpers/src/*"],
+      "@kafka/kafka": ["libs/kafka/src"],
+      "@kafka/kafka/*": ["libs/kafka/src/*"],
+      "@notification-service/*": ["apps/notification-service/src/*"]
     },
     "incremental": true,
     "skipLibCheck": true,
@@ -25,5 +34,13 @@
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false
   },
-  "include": ["./src/**/*", "./test/**/*"]
+  "include": [
+    "./libs/helpers/src/**/*",
+    "./apps/**/src/**/*",
+    "./apps/**/test/**/*",
+    "./libs/caching/src/**/*",
+    "./libs/config/src/**/*",
+    "./libs/kafka/src/**/*",
+    "socket-test.js"
+  ]
 }
