@@ -4,10 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { KafkaService } from './kafka.service';
 import {
   KAFKA_PRODUCER_USERSSERVICE,
-  KAFKA_PRODUCER_USERSSERVICE_CLIENT_ID,
   KAFKA_CONSUMER_WS,
-  KAFKA_CONSUMER_WS_CLIENT_ID,
-  KAFKA_CONSUMER_WS_GROUP_ID,
 } from '@crud-hw-dm/common/consts/kafka.constants';
 import {
   createKafkaConsumerOptions,
@@ -26,7 +23,7 @@ import { KafkaListener } from './kafka.listener';
         useFactory: (cfg: ConfigService) =>
           createKafkaProducerOptions(
             cfg,
-            KAFKA_PRODUCER_USERSSERVICE_CLIENT_ID
+            'KAFKA_PRODUCER_USERSSERVICE_CLIENT_ID'
           ),
       },
     ]),
@@ -41,8 +38,8 @@ import { KafkaListener } from './kafka.listener';
         new ServerKafka(
           createKafkaConsumerOptions(
             cfg,
-            KAFKA_CONSUMER_WS_CLIENT_ID,
-            KAFKA_CONSUMER_WS_GROUP_ID
+            'KAFKA_CONSUMER_WS_CLIENT_ID',
+            'KAFKA_CONSUMER_WS_GROUP_ID'
           ).options ?? {}
         ),
     },

@@ -1,24 +1,24 @@
 import { ConfigService } from '@nestjs/config';
 import { KafkaOptions, Transport } from '@nestjs/microservices';
-import { KAFKA_DEFAULT_BROKERS } from '@crud-hw-dm/common/consts/kafka.constants';
 
 export function getKafkaBrokers(cfg: ConfigService): string[] {
-  const brokers = (cfg.get<string>('KAFKA_BROKERS') ?? KAFKA_DEFAULT_BROKERS)
-    .split(',')
-    .map(broker => broker.trim())
-    .filter(Boolean);
+  const cfgBrokers = cfg.get<string>('KAFKA_BROKERS');
 
-  if (!brokers.length) {
-    throw new Error('KAFKA_BROKERS is empty.');
+  if (!cfgBrokers) {
+    throw new Error('KAFKA_BROKERS is empty');
   }
 
-  return brokers;
+  return cfgBrokers.split(',').map(broker => broker.trim());
 }
 
 export function createKafkaProducerOptions(
   cfg: ConfigService,
-  clientId: string
+  cfgClientId: string
 ): KafkaOptions {
+  const clientId = cfg.get<string>(cfgClientId);
+  if (!clientId) {
+    throw new Error(`${cfgClientId} is empty.`);
+  }
   return {
     transport: Transport.KAFKA,
     options: {
@@ -33,9 +33,17 @@ export function createKafkaProducerOptions(
 
 export function createKafkaConsumerOptions(
   cfg: ConfigService,
-  clientId: string,
-  groupId: string
+  cfgClientId: string,
+  cfgGroupId: string
 ): KafkaOptions {
+  const clientId = cfg.get<string>(cfgClientId);
+  if (!clientId) {
+    throw new Error(`${cfgClientId} is empty.`);
+  }
+  const groupId = cfg.get<string>(cfgGroupId);
+  if (!groupId) {
+    throw new Error(`${cfgGroupId} is empty.`);
+  }
   return {
     transport: Transport.KAFKA,
     options: {

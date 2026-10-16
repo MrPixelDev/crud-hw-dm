@@ -11,10 +11,6 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-// import {
-//   normalizeEmail,
-//   normalizeLogin,
-// } from 'src/common/utilities/transformers.utility';
 import { HelpersService } from '@hwdm/helpers';
 
 export class SignupDto {

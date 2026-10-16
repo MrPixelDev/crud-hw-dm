@@ -17,6 +17,6 @@ async function bootstrap() {
 
   logger.configureHttp(app);
 
-  await app.listen(3001);
+  await app.listen(process.env.NOTIFICATIONS_PORT ?? 3001);
 }
 void bootstrap();
